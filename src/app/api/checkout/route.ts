@@ -14,6 +14,13 @@ function getStripe() {
   });
 }
 
+// Obtener la URL base de la aplicación
+function getBaseUrl(): string {
+  return process.env.NEXT_PUBLIC_APP_URL || 
+         process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 
+         'https://psicomente.vercel.app';
+}
+
 export async function POST(request: NextRequest) {
   const stripe = getStripe();
   
@@ -36,7 +43,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('Creando checkout para:', email);
+    console.log('🔵 Creando checkout para:', email);
+
+    const baseUrl = getBaseUrl();
+    console.log('🔵 Base URL:', baseUrl);
 
     // Buscar o crear producto
     let product;
@@ -48,14 +58,14 @@ export async function POST(request: NextRequest) {
     product = products.data.find(p => p.name === 'PsicoMente Premium');
 
     if (!product) {
-      console.log('Creando nuevo producto...');
+      console.log('🔵 Creando nuevo producto...');
       product = await stripe.products.create({
         name: 'PsicoMente Premium',
         description: 'Acceso ilimitado al chat con IA, diario completo y funciones avanzadas',
       });
-      console.log('Producto creado:', product.id);
+      console.log('🔵 Producto creado:', product.id);
     } else {
-      console.log('Producto encontrado:', product.id);
+      console.log('🔵 Producto encontrado:', product.id);
     }
 
     // Buscar precio existente
@@ -68,9 +78,9 @@ export async function POST(request: NextRequest) {
 
     if (prices.data.length > 0) {
       priceId = prices.data[0].id;
-      console.log('Precio encontrado:', priceId);
+      console.log('🔵 Precio encontrado:', priceId);
     } else {
-      console.log('Creando nuevo precio...');
+      console.log('🔵 Creando nuevo precio...');
       const price = await stripe.prices.create({
         product: product.id,
         unit_amount: 499, // 4.99 EUR
@@ -81,11 +91,11 @@ export async function POST(request: NextRequest) {
         nickname: 'Premium Mensual',
       });
       priceId = price.id;
-      console.log('Precio creado:', priceId);
+      console.log('🔵 Precio creado:', priceId);
     }
 
     // Crear sesión de checkout
-    console.log('Creando sesión de checkout...');
+    console.log('🔵 Creando sesión de checkout...');
     const session = await stripe.checkout.sessions.create({
       customer_email: email,
       payment_method_types: ['card'],
@@ -96,8 +106,8 @@ export async function POST(request: NextRequest) {
         },
       ],
       mode: 'subscription',
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://my-project-kohl-three-63.vercel.app'}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://my-project-kohl-three-63.vercel.app'}/checkout/cancel`,
+      success_url: `${baseUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${baseUrl}/checkout/cancel`,
       metadata: {
         email,
         name: name || '',
@@ -109,7 +119,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    console.log('Sesión creada:', session.id);
+    console.log('✅ Sesión creada:', session.id);
 
     return NextResponse.json({ 
       url: session.url,
@@ -117,7 +127,7 @@ export async function POST(request: NextRequest) {
       success: true 
     });
   } catch (error) {
-    console.error('Error en checkout:', error);
+    console.error('❌ Error en checkout:', error);
     
     const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
     

@@ -136,12 +136,12 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader className="text-center">
-          <div className="mx-auto mb-4 p-3 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5">
+          <div className="mx-auto mb-4 p-3 rounded-xl bg-gradient-to-br from-primary/20 via-accent/10 to-primary/5">
             <Brain className="h-8 w-8 text-primary" />
           </div>
           <DialogTitle className="text-xl">Bienvenido a PsicoMente</DialogTitle>
           <DialogDescription>
-            Inicia sesión o crea una cuenta para guardar tu progreso en la nube
+            Inicia sesión para acceder a tu cuenta y guardar tu progreso
           </DialogDescription>
         </DialogHeader>
 
@@ -149,7 +149,7 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
         <Button
           type="button"
           variant="outline"
-          className="w-full h-11"
+          className="w-full h-11 hover:bg-muted/50"
           onClick={handleGoogleLogin}
           disabled={googleLoading || isLoading}
         >

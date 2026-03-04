@@ -187,7 +187,7 @@ export function useUser() {
     });
   }, []);
 
-  const login = useCallback(async (name: string, email: string, avatar?: string) => {
+  const login = useCallback(async (name: string, email: string, avatar?: string): Promise<{ isPremium: boolean }> => {
     setIsLoading(true);
     
     const storedProgress = localStorage.getItem(PROGRESS_KEY);
@@ -197,11 +197,13 @@ export function useUser() {
       const response = await fetch(`/api/user?email=${encodeURIComponent(email)}`);
       const data = await response.json();
       
+      const isPremiumFromDB = data.user?.isPremium || false;
+      
       const newUser: User = {
         id: data.user?.id || crypto.randomUUID(),
         name: name || data.user?.name || 'Usuario',
         email,
-        isPremium: data.user?.isPremium || false,
+        isPremium: isPremiumFromDB,
         avatar: avatar || undefined,
         createdAt: data.user?.createdAt ? new Date(data.user.createdAt) : new Date(),
         role: (data.user?.role as UserRole) || 'user',
@@ -243,6 +245,9 @@ export function useUser() {
           }),
         }).catch(() => {});
       }
+      
+      setIsLoading(false);
+      return { isPremium: isPremiumFromDB };
     } catch {
       const newUser: User = {
         id: crypto.randomUUID(),
@@ -265,9 +270,10 @@ export function useUser() {
       
       window.dispatchEvent(new Event(USER_CHANGE_EVENT));
       window.dispatchEvent(new Event(PROGRESS_CHANGE_EVENT));
+      
+      setIsLoading(false);
+      return { isPremium: false };
     }
-    
-    setIsLoading(false);
   }, []);
 
   const logout = useCallback(async () => {
