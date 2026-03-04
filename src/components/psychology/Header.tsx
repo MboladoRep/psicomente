@@ -12,7 +12,8 @@ import {
   LogOut, 
   Sparkles,
   ChevronDown,
-  Settings
+  Settings,
+  Shield
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -26,12 +27,9 @@ import { useUser } from '@/hooks/useUser';
 import AuthModal from './AuthModal';
 
 export default function Header() {
-  const { user, progress, logout, upgradeToPremium } = useUser();
+  const { user, progress, logout, upgradeToPremium, isAdmin } = useUser();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
-
-  // Admin check
-  const isAdmin = user?.email === 'm.bolado79@gmail.com';
 
   const navItems = [
     { label: 'Inicio', href: '#inicio' },
@@ -124,10 +122,13 @@ export default function Header() {
                       <p className="text-xs text-muted-foreground">{user.email}</p>
                     </div>
                     <DropdownMenuSeparator />
+                    {/* Admin Panel Link - Only visible for admins */}
                     {isAdmin && (
-                      <DropdownMenuItem onClick={() => document.getElementById('admin')?.scrollIntoView({ behavior: 'smooth' })}>
-                        <Settings className="h-4 w-4 mr-2" />
-                        Panel Admin
+                      <DropdownMenuItem asChild>
+                        <Link href="/admin" className="cursor-pointer">
+                          <Shield className="h-4 w-4 mr-2 text-red-500" />
+                          Panel Admin
+                        </Link>
                       </DropdownMenuItem>
                     )}
                     {!user.isPremium && (
@@ -177,6 +178,17 @@ export default function Header() {
                   {item.label}
                 </a>
               ))}
+              {/* Admin Link in Mobile Menu */}
+              {isAdmin && (
+                <Link
+                  href="/admin"
+                  className="px-3 py-2 text-sm font-medium text-red-500 hover:text-red-600 transition-colors rounded-md hover:bg-muted flex items-center gap-2"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  <Shield className="h-4 w-4" />
+                  Panel Admin
+                </Link>
+              )}
             </nav>
           </div>
         )}

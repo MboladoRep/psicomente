@@ -11,13 +11,9 @@ import PsychologicalTests from '@/components/psychology/PsychologicalTests';
 import MindfulnessZone from '@/components/psychology/MindfulnessZone';
 import PricingSection from '@/components/psychology/PricingSection';
 import Footer from '@/components/psychology/Footer';
-import AdminPanel from '@/components/admin/AdminPanel';
-import { useUser } from '@/hooks/useUser';
 import { Toaster } from '@/components/ui/toaster';
 
 export default function Home() {
-  const { isAdmin } = useUser();
-
   // Give welcome points on first visit
   useEffect(() => {
     const hasVisited = localStorage.getItem('psicomente_visited');
@@ -54,15 +50,6 @@ export default function Home() {
 
         {/* Pricing */}
         <PricingSection />
-
-        {/* Admin Panel - Only visible for admin users */}
-        {isAdmin && (
-          <section id="admin" className="py-16 bg-muted/30">
-            <div className="container mx-auto px-4">
-              <AdminPanel />
-            </div>
-          </section>
-        )}
       </main>
 
       <Footer />
