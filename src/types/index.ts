@@ -13,6 +13,7 @@ export interface Database {
           level: number;
           streak: number;
           createdat: string;
+          role: string;
         };
         Insert: {
           id?: string;
@@ -24,6 +25,7 @@ export interface Database {
           level?: number;
           streak?: number;
           createdat?: string;
+          role?: string;
         };
         Update: {
           id?: string;
@@ -35,11 +37,15 @@ export interface Database {
           level?: number;
           streak?: number;
           createdat?: string;
+          role?: string;
         };
       };
     };
   };
 }
+
+// User Roles
+export type UserRole = 'user' | 'premium' | 'admin';
 
 // User Types
 export interface User {
@@ -49,6 +55,7 @@ export interface User {
   isPremium: boolean;
   avatar?: string;
   createdAt: Date;
+  role: UserRole;
 }
 
 // Gamification Types

@@ -12,7 +12,7 @@ import {
   Activity,
   RefreshCw,
   Lock,
-  X
+  Shield
 } from 'lucide-react';
 import { useUser } from '@/hooks/useUser';
 
@@ -25,24 +25,22 @@ interface AdminStats {
   conversionRate: string;
 }
 
-interface User {
+interface UserItem {
   id: string;
   email: string;
   name: string;
   isPremium: boolean;
   createdAt: string;
   premiumSince?: string;
+  role?: string;
 }
 
 export default function AdminPanel() {
-  const { user } = useUser();
+  const { isAdmin } = useUser();
   const [stats, setStats] = useState<AdminStats | null>(null);
-  const [recentUsers, setRecentUsers] = useState<User[]>([]);
+  const [recentUsers, setRecentUsers] = useState<UserItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-
-  // Only allow admin access (check by email)
-  const isAdmin = user?.email === 'm.bolado79@gmail.com';
 
   const fetchData = async () => {
     setRefreshing(true);
@@ -74,6 +72,19 @@ export default function AdminPanel() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, action: 'makePremium' }),
+      });
+      fetchData();
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  };
+
+  const handleMakeAdmin = async (userId: string) => {
+    try {
+      await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, action: 'makeAdmin' }),
       });
       fetchData();
     } catch (error) {
@@ -115,7 +126,10 @@ export default function AdminPanel() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Panel de Administración</h2>
+        <div className="flex items-center gap-2">
+          <Shield className="h-6 w-6 text-primary" />
+          <h2 className="text-2xl font-bold">Panel de Administración</h2>
+        </div>
         <Button onClick={fetchData} disabled={refreshing} size="sm">
           <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
           Actualizar
@@ -209,6 +223,14 @@ export default function AdminPanel() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  {/* Role Badge */}
+                  {u.role === 'admin' && (
+                    <Badge className="bg-red-500 text-xs">
+                      <Shield className="h-3 w-3 mr-1" />
+                      Admin
+                    </Badge>
+                  )}
+                  {/* Premium Badge */}
                   {u.isPremium ? (
                     <Badge className="bg-amber-500 text-xs">
                       <Crown className="h-3 w-3 mr-1" />
@@ -222,10 +244,23 @@ export default function AdminPanel() {
                         variant="ghost"
                         onClick={() => handleMakePremium(u.id)}
                         className="text-amber-600 hover:text-amber-700"
+                        title="Hacer Premium"
                       >
                         <Crown className="h-4 w-4" />
                       </Button>
                     </>
+                  )}
+                  {/* Make Admin Button (only for non-admins) */}
+                  {u.role !== 'admin' && (
+                    <Button 
+                      size="sm" 
+                      variant="ghost"
+                      onClick={() => handleMakeAdmin(u.id)}
+                      className="text-red-600 hover:text-red-700"
+                      title="Hacer Admin"
+                    >
+                      <Shield className="h-4 w-4" />
+                    </Button>
                   )}
                   <span className="text-xs text-muted-foreground">
                     {u.createdAt ? formatDate(u.createdAt) : ''}

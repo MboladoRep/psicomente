@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useMemo, useEffect } from 'react';
-import { User, UserProgress } from '@/types';
+import { User, UserProgress, UserRole } from '@/types';
 import { onAuthStateChange, signOutUser } from '@/lib/firebase-auth';
 
 const STORAGE_KEY = 'psicomente_user';
@@ -89,6 +89,7 @@ export function useUser() {
             isPremium: dbData.user?.isPremium || false,
             avatar,
             createdAt: dbData.user?.createdAt ? new Date(dbData.user.createdAt) : new Date(),
+            role: (dbData.user?.role as UserRole) || 'user',
           };
 
           localStorage.setItem(STORAGE_KEY, JSON.stringify(oauthUser));
@@ -118,6 +119,7 @@ export function useUser() {
             isPremium: false,
             avatar,
             createdAt: new Date(),
+            role: 'user',
           };
           localStorage.setItem(STORAGE_KEY, JSON.stringify(oauthUser));
           setUser(oauthUser);
@@ -202,6 +204,7 @@ export function useUser() {
         isPremium: data.user?.isPremium || false,
         avatar: avatar || undefined,
         createdAt: data.user?.createdAt ? new Date(data.user.createdAt) : new Date(),
+        role: (data.user?.role as UserRole) || 'user',
       };
       
       localStorage.setItem(STORAGE_KEY, JSON.stringify(newUser));
@@ -248,6 +251,7 @@ export function useUser() {
         isPremium: false,
         avatar: avatar || undefined,
         createdAt: new Date(),
+        role: 'user',
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(newUser));
       setUser(newUser);
@@ -322,6 +326,11 @@ export function useUser() {
     return Math.max(0, 5 - chatCount);
   }, [user?.isPremium, chatCount]);
 
+  // Check if user is admin
+  const isAdmin = useMemo(() => {
+    return user?.role === 'admin';
+  }, [user?.role]);
+
   return {
     user,
     progress,
@@ -336,5 +345,6 @@ export function useUser() {
     incrementChatCount,
     canUseChat,
     remainingChats,
+    isAdmin,
   };
 }

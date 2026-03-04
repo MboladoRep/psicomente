@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
     // Últimos usuarios registrados
     const { data: recentUsers } = await supabase
       .from('users')
-      .select('id, email, name, ispremium, createdat, premiumsince')
+      .select('id, email, name, ispremium, createdat, premiumsince, role')
       .order('createdat', { ascending: false })
       .limit(10);
 
@@ -109,6 +109,30 @@ export async function POST(request: NextRequest) {
         
         if (error) throw error;
         return NextResponse.json({ success: true, message: 'Premium removido' });
+      }
+      
+      case 'makeAdmin': {
+        const { error } = await supabase
+          .from('users')
+          .update({
+            role: 'admin',
+          })
+          .eq('id', userId);
+        
+        if (error) throw error;
+        return NextResponse.json({ success: true, message: 'Usuario actualizado a Admin' });
+      }
+      
+      case 'removeAdmin': {
+        const { error } = await supabase
+          .from('users')
+          .update({
+            role: 'user',
+          })
+          .eq('id', userId);
+        
+        if (error) throw error;
+        return NextResponse.json({ success: true, message: 'Rol de admin removido' });
       }
       
       case 'deleteUser': {

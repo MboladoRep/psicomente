@@ -17,11 +17,18 @@ import {
 
 export default function Hero() {
   const features = [
-    { icon: MessageCircle, label: 'Chat con IA', desc: 'Consultas 24/7' },
-    { icon: BookOpen, label: 'Artículos', desc: 'Recursos expertos' },
-    { icon: Target, label: 'Tests', desc: 'Autoevaluaciones' },
-    { icon: Heart, label: 'Bienestar', desc: 'Mindfulness' },
+    { icon: MessageCircle, label: 'Chat con IA', desc: 'Consultas 24/7', href: '#chat' },
+    { icon: BookOpen, label: 'Artículos', desc: 'Recursos expertos', href: '#articulos' },
+    { icon: Target, label: 'Tests', desc: 'Autoevaluaciones', href: '#tests' },
+    { icon: Heart, label: 'Bienestar', desc: 'Mindfulness', href: '#mindfulness' },
   ];
+
+  const scrollToSection = (href: string) => {
+    const element = document.querySelector(href);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
 
   return (
     <section id="inicio" className="relative overflow-hidden">
@@ -88,6 +95,7 @@ export default function Hero() {
               {features.map((feature, index) => (
                 <div
                   key={index}
+                  onClick={() => scrollToSection(feature.href)}
                   className="group p-6 rounded-2xl bg-card border shadow-sm hover:shadow-md transition-all hover:scale-105 cursor-pointer"
                 >
                   <feature.icon className="h-8 w-8 text-primary mb-3 group-hover:scale-110 transition-transform" />

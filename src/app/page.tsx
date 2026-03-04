@@ -16,10 +16,7 @@ import { useUser } from '@/hooks/useUser';
 import { Toaster } from '@/components/ui/toaster';
 
 export default function Home() {
-  const { user, addPoints, progress } = useUser();
-
-  // Admin check
-  const isAdmin = user?.email === 'm.bolado79@gmail.com';
+  const { isAdmin } = useUser();
 
   // Give welcome points on first visit
   useEffect(() => {

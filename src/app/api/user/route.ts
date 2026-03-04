@@ -49,6 +49,7 @@ export async function GET(request: NextRequest) {
         level: existingUser.level ?? 1,
         streak: existingUser.streak ?? 0,
         createdAt: existingUser.createdat,
+        role: existingUser.role || 'user',
       };
       return NextResponse.json({ user, success: true });
     }
@@ -56,7 +57,7 @@ export async function GET(request: NextRequest) {
     // Crear usuario nuevo si no existe
     const { data: newUser, error: createError } = await supabase
       .from('users')
-      .insert([{ email, name: email.split('@')[0] }])
+      .insert([{ email, name: email.split('@')[0], role: 'user' }])
       .select()
       .single();
 
@@ -79,6 +80,7 @@ export async function GET(request: NextRequest) {
       level: newUser.level ?? 1,
       streak: newUser.streak ?? 0,
       createdAt: newUser.createdat,
+      role: newUser.role || 'user',
     };
 
     return NextResponse.json({ user, success: true });
@@ -124,6 +126,7 @@ export async function PATCH(request: NextRequest) {
     if (updates.isPremium !== undefined) mappedUpdates.ispremium = updates.isPremium;
     if (updates.premiumSince !== undefined) mappedUpdates.premiumsince = updates.premiumSince;
     if (updates.lastActiveAt !== undefined) mappedUpdates.lastactiveat = updates.lastActiveAt;
+    if (updates.role !== undefined) mappedUpdates.role = updates.role;
 
     const { data, error } = await supabase
       .from('users')
@@ -151,6 +154,7 @@ export async function PATCH(request: NextRequest) {
       level: data.level ?? 1,
       streak: data.streak ?? 0,
       createdAt: data.createdat,
+      role: data.role || 'user',
     };
 
     return NextResponse.json({ user, success: true });
@@ -167,7 +171,7 @@ export async function PATCH(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, name, isPremium, premiumSince } = body;
+    const { email, name, isPremium, premiumSince, role } = body;
 
     if (!email) {
       return NextResponse.json(
@@ -190,6 +194,7 @@ export async function POST(request: NextRequest) {
         name: name || email.split('@')[0],
         ispremium: isPremium ?? false,
         premiumsince: premiumSince,
+        role: role || 'user',
         updatedat: new Date().toISOString(),
       }, {
         onConflict: 'email'
@@ -216,6 +221,7 @@ export async function POST(request: NextRequest) {
       level: data.level ?? 1,
       streak: data.streak ?? 0,
       createdAt: data.createdat,
+      role: data.role || 'user',
     };
 
     return NextResponse.json({ user, success: true });
