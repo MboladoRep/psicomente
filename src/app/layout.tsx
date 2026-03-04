@@ -19,12 +19,25 @@ export const metadata: Metadata = {
   keywords: ["psicología", "bienestar", "salud mental", "terapia online", "mindfulness", "tests psicológicos", "apoyo emocional", "consulta psicológica"],
   authors: [{ name: "PsicoMente Team" }],
   icons: {
-    icon: "/logo.svg",
+    icon: [
+      { url: "/favicon.ico", sizes: "32x32" },
+      { url: "/logo.svg", type: "image/svg+xml" },
+    ],
+    apple: [
+      { url: "/apple-touch-icon.png", sizes: "180x180" },
+    ],
   },
   openGraph: {
     title: "PsicoMente - Tu Portal de Bienestar Psicológico",
     description: "Consultas psicológicas con IA, recursos educativos y herramientas para tu bienestar emocional",
     type: "website",
+    images: ["/logo.svg"],
+  },
+  twitter: {
+    card: "summary",
+    title: "PsicoMente - Tu Portal de Bienestar Psicológico",
+    description: "Consultas psicológicas con IA, recursos educativos y herramientas para tu bienestar emocional",
+    images: ["/logo.svg"],
   },
 };
 

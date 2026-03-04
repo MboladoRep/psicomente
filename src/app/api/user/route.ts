@@ -16,6 +16,15 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Check if supabase is available
+    if (!supabase) {
+      console.error('Supabase client is not initialized');
+      return NextResponse.json(
+        { error: 'Database connection not available', success: false },
+        { status: 500 }
+      );
+    }
+
     // Buscar usuario
     const { data: existingUser, error: fetchError } = await supabase
       .from('users')
@@ -23,14 +32,31 @@ export async function GET(request: NextRequest) {
       .eq('email', email)
       .single();
 
+    if (fetchError && fetchError.code !== 'PGRST116') {
+      console.error('Error fetching user:', fetchError);
+    }
+
     if (existingUser) {
-      return NextResponse.json({ user: existingUser, success: true });
+      // Map database fields to camelCase for frontend
+      const user = {
+        id: existingUser.id,
+        email: existingUser.email,
+        name: existingUser.name,
+        avatar: existingUser.avatar,
+        isPremium: existingUser.ispremium ?? false,
+        premiumSince: existingUser.premiumsince,
+        points: existingUser.points ?? 0,
+        level: existingUser.level ?? 1,
+        streak: existingUser.streak ?? 0,
+        createdAt: existingUser.createdat,
+      };
+      return NextResponse.json({ user, success: true });
     }
 
     // Crear usuario nuevo si no existe
     const { data: newUser, error: createError } = await supabase
       .from('users')
-      .insert([{ email }])
+      .insert([{ email, name: email.split('@')[0] }])
       .select()
       .single();
 
@@ -42,7 +68,20 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({ user: newUser, success: true });
+    const user = {
+      id: newUser.id,
+      email: newUser.email,
+      name: newUser.name,
+      avatar: newUser.avatar,
+      isPremium: newUser.ispremium ?? false,
+      premiumSince: newUser.premiumsince,
+      points: newUser.points ?? 0,
+      level: newUser.level ?? 1,
+      streak: newUser.streak ?? 0,
+      createdAt: newUser.createdat,
+    };
+
+    return NextResponse.json({ user, success: true });
   } catch (error) {
     console.error('Error in user API:', error);
     return NextResponse.json(
@@ -65,8 +104,18 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
+    if (!supabase) {
+      return NextResponse.json(
+        { error: 'Database connection not available', success: false },
+        { status: 500 }
+      );
+    }
+
     // Mapear campos de camelCase a los nombres de columna
-    const mappedUpdates: Record<string, unknown> = {};
+    const mappedUpdates: Record<string, unknown> = {
+      updatedat: new Date().toISOString(),
+    };
+    
     if (updates.name !== undefined) mappedUpdates.name = updates.name;
     if (updates.avatar !== undefined) mappedUpdates.avatar = updates.avatar;
     if (updates.points !== undefined) mappedUpdates.points = updates.points;
@@ -91,11 +140,89 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({ user: data, success: true });
+    const user = {
+      id: data.id,
+      email: data.email,
+      name: data.name,
+      avatar: data.avatar,
+      isPremium: data.ispremium ?? false,
+      premiumSince: data.premiumsince,
+      points: data.points ?? 0,
+      level: data.level ?? 1,
+      streak: data.streak ?? 0,
+      createdAt: data.createdat,
+    };
+
+    return NextResponse.json({ user, success: true });
   } catch (error) {
     console.error('Error in user PATCH:', error);
     return NextResponse.json(
       { error: 'Error al actualizar usuario', success: false },
+      { status: 500 }
+    );
+  }
+}
+
+// POST - Crear o actualizar usuario (upsert)
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { email, name, isPremium, premiumSince } = body;
+
+    if (!email) {
+      return NextResponse.json(
+        { error: 'Email es requerido', success: false },
+        { status: 400 }
+      );
+    }
+
+    if (!supabase) {
+      return NextResponse.json(
+        { error: 'Database connection not available', success: false },
+        { status: 500 }
+      );
+    }
+
+    const { data, error } = await supabase
+      .from('users')
+      .upsert({
+        email,
+        name: name || email.split('@')[0],
+        ispremium: isPremium ?? false,
+        premiumsince: premiumSince,
+        updatedat: new Date().toISOString(),
+      }, {
+        onConflict: 'email'
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error upserting user:', error);
+      return NextResponse.json(
+        { error: 'Error al guardar usuario', success: false },
+        { status: 500 }
+      );
+    }
+
+    const user = {
+      id: data.id,
+      email: data.email,
+      name: data.name,
+      avatar: data.avatar,
+      isPremium: data.ispremium ?? false,
+      premiumSince: data.premiumsince,
+      points: data.points ?? 0,
+      level: data.level ?? 1,
+      streak: data.streak ?? 0,
+      createdAt: data.createdat,
+    };
+
+    return NextResponse.json({ user, success: true });
+  } catch (error) {
+    console.error('Error in user POST:', error);
+    return NextResponse.json(
+      { error: 'Error al guardar usuario', success: false },
       { status: 500 }
     );
   }

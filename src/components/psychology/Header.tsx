@@ -11,7 +11,8 @@ import {
   Crown, 
   LogOut, 
   Sparkles,
-  ChevronDown
+  ChevronDown,
+  Settings
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -28,6 +29,9 @@ export default function Header() {
   const { user, progress, logout, upgradeToPremium } = useUser();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
+
+  // Admin check
+  const isAdmin = user?.email === 'm.bolado79@gmail.com';
 
   const navItems = [
     { label: 'Inicio', href: '#inicio' },
@@ -120,10 +124,18 @@ export default function Header() {
                       <p className="text-xs text-muted-foreground">{user.email}</p>
                     </div>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={upgradeToPremium} className="text-amber-600">
-                      <Crown className="h-4 w-4 mr-2" />
-                      Actualizar a Premium
-                    </DropdownMenuItem>
+                    {isAdmin && (
+                      <DropdownMenuItem onClick={() => document.getElementById('admin')?.scrollIntoView({ behavior: 'smooth' })}>
+                        <Settings className="h-4 w-4 mr-2" />
+                        Panel Admin
+                      </DropdownMenuItem>
+                    )}
+                    {!user.isPremium && (
+                      <DropdownMenuItem onClick={upgradeToPremium} className="text-amber-600">
+                        <Crown className="h-4 w-4 mr-2" />
+                        Actualizar a Premium
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={logout} className="text-red-600">
                       <LogOut className="h-4 w-4 mr-2" />

@@ -11,11 +11,15 @@ import PsychologicalTests from '@/components/psychology/PsychologicalTests';
 import MindfulnessZone from '@/components/psychology/MindfulnessZone';
 import PricingSection from '@/components/psychology/PricingSection';
 import Footer from '@/components/psychology/Footer';
+import AdminPanel from '@/components/admin/AdminPanel';
 import { useUser } from '@/hooks/useUser';
 import { Toaster } from '@/components/ui/toaster';
 
 export default function Home() {
-  const { addPoints, progress } = useUser();
+  const { user, addPoints, progress } = useUser();
+
+  // Admin check
+  const isAdmin = user?.email === 'm.bolado79@gmail.com';
 
   // Give welcome points on first visit
   useEffect(() => {
@@ -53,6 +57,15 @@ export default function Home() {
 
         {/* Pricing */}
         <PricingSection />
+
+        {/* Admin Panel - Only visible for admin users */}
+        {isAdmin && (
+          <section id="admin" className="py-16 bg-muted/30">
+            <div className="container mx-auto px-4">
+              <AdminPanel />
+            </div>
+          </section>
+        )}
       </main>
 
       <Footer />
