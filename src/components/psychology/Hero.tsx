@@ -40,14 +40,14 @@ export default function Hero() {
         <div className="flex flex-col lg:flex-row items-center gap-12">
           {/* Content */}
           <div className="flex-1 text-center lg:text-left">
-            <Badge variant="secondary" className="mb-4 px-3 py-1">
-              <Sparkles className="h-3 w-3 mr-1 text-primary" />
-              Plataforma de bienestar integral
+            <Badge variant="secondary" className="mb-4 px-4 py-1.5 bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20">
+              <Sparkles className="h-3.5 w-3.5 mr-1.5 text-primary" />
+              Tu espacio de bienestar mental
             </Badge>
 
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-6">
               Tu bienestar mental{' '}
-              <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
                 comienza aquí
               </span>
             </h1>

@@ -14,30 +14,30 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PsicoMente - Tu Portal de Bienestar Psicológico",
+  title: "PsicoMente | Bienestar Psicológico",
   description: "Plataforma integral de psicología y bienestar emocional. Consultas con IA, recursos educativos, diario emocional, tests psicológicos y técnicas de mindfulness. Versión gratuita y premium disponible.",
   keywords: ["psicología", "bienestar", "salud mental", "terapia online", "mindfulness", "tests psicológicos", "apoyo emocional", "consulta psicológica"],
   authors: [{ name: "PsicoMente Team" }],
   icons: {
     icon: [
-      { url: "/favicon.ico", sizes: "32x32" },
-      { url: "/logo.svg", type: "image/svg+xml" },
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/favicon-v2.png", type: "image/png", sizes: "1024x1024" },
     ],
     apple: [
       { url: "/apple-touch-icon.png", sizes: "180x180" },
     ],
   },
   openGraph: {
-    title: "PsicoMente - Tu Portal de Bienestar Psicológico",
+    title: "PsicoMente | Tu Bienestar Mental",
     description: "Consultas psicológicas con IA, recursos educativos y herramientas para tu bienestar emocional",
     type: "website",
-    images: ["/logo.svg"],
+    images: ["/favicon-v2.png"],
   },
   twitter: {
     card: "summary",
-    title: "PsicoMente - Tu Portal de Bienestar Psicológico",
+    title: "PsicoMente | Bienestar Psicológico",
     description: "Consultas psicológicas con IA, recursos educativos y herramientas para tu bienestar emocional",
-    images: ["/logo.svg"],
+    images: ["/favicon-v2.png"],
   },
 };
 
@@ -48,6 +48,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" suppressHydrationWarning>
+      <head>
+        <link rel="icon" href="/favicon.ico" key="favicon" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" key="apple-icon" />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >

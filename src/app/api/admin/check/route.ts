@@ -3,6 +3,9 @@ import { supabase } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
 
+// Admin emails que siempre tienen acceso (fallback)
+const ADMIN_EMAILS = ['m.bolado79@gmail.com'];
+
 // GET - Verificar si el usuario actual es admin
 export async function GET(request: NextRequest) {
   try {
@@ -14,6 +17,11 @@ export async function GET(request: NextRequest) {
         { isAdmin: false, error: 'Email requerido' },
         { status: 400 }
       );
+    }
+
+    // Fallback: si el email está en la lista de admins, tiene acceso
+    if (ADMIN_EMAILS.includes(email)) {
+      return NextResponse.json({ isAdmin: true, role: 'admin', source: 'fallback' });
     }
 
     if (!supabase) {
@@ -36,7 +44,7 @@ export async function GET(request: NextRequest) {
 
     const isAdmin = user.role === 'admin';
 
-    return NextResponse.json({ isAdmin, role: user.role });
+    return NextResponse.json({ isAdmin, role: user.role, source: 'database' });
   } catch (error) {
     console.error('Error checking admin status:', error);
     return NextResponse.json({ isAdmin: false });

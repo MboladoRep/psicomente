@@ -326,10 +326,12 @@ export function useUser() {
     return Math.max(0, 5 - chatCount);
   }, [user?.isPremium, chatCount]);
 
-  // Check if user is admin
+  // Check if user is admin (by role OR by email as fallback)
   const isAdmin = useMemo(() => {
-    return user?.role === 'admin';
-  }, [user?.role]);
+    // Fallback: el email del admin principal siempre tiene acceso
+    const adminEmails = ['m.bolado79@gmail.com'];
+    return user?.role === 'admin' || (user?.email && adminEmails.includes(user.email));
+  }, [user?.role, user?.email]);
 
   return {
     user,
