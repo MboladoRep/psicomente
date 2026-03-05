@@ -29,3 +29,4 @@ if (typeof window !== 'undefined' && firebaseConfig.apiKey) {
 }
 
 export { app, auth, googleProvider };
+// Config updated Thu Mar  5 11:28:55 UTC 2026
