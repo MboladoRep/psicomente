@@ -34,10 +34,10 @@ export default function Footer() {
     {
       title: 'Legal',
       links: [
-        { label: 'Términos de Servicio', href: '#' },
-        { label: 'Política de Privacidad', href: '#' },
-        { label: 'Cookies', href: '#' },
-        { label: 'Aviso Legal', href: '#' },
+        { label: 'Términos de Servicio', href: '/terminos' },
+        { label: 'Política de Privacidad', href: '/privacidad' },
+        { label: 'Cookies', href: '/privacidad#cookies' },
+        { label: 'Contacto', href: 'mailto:soporte@psicomente.com' },
       ],
     },
   ];
