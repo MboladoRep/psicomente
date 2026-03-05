@@ -37,30 +37,57 @@ function getRandomTopic(category: typeof CATEGORIES[0]) {
   return category.topics[Math.floor(Math.random() * category.topics.length)];
 }
 
+/**
+ * Verifica si la solicitud proviene de un Cron Job de Vercel o está autorizada manualmente
+ */
+function isAuthorizedCron(request: NextRequest): boolean {
+  const authHeader = request.headers.get('authorization');
+  const cronSecret = process.env.CRON_SECRET;
+
+  // Método 1: Vercel Cron Job nativo (envía "Bearer vercel-cron")
+  if (authHeader === 'Bearer vercel-cron') {
+    return true;
+  }
+
+  // Método 2: CRON_SECRET personalizado (para llamadas manuales o externas)
+  if (cronSecret && authHeader === `Bearer ${cronSecret}`) {
+    return true;
+  }
+
+  // Método 3: Verificar header específico de Vercel
+  const vercelCronHeader = request.headers.get('x-vercel-cron');
+  if (vercelCronHeader === 'true') {
+    return true;
+  }
+
+  return false;
+}
+
 export async function POST(request: NextRequest) {
   try {
+    // Verificar autorización
+    if (!isAuthorizedCron(request)) {
+      console.warn('Unauthorized cron attempt');
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     // SECURITY: Validate API key exists
     if (!GROQ_API_KEY) {
       console.error('GROQ_API_KEY not configured');
-      return NextResponse.json({ error: 'Service not configured' }, { status: 503 });
+      return NextResponse.json({ error: 'Service not configured - missing GROQ_API_KEY' }, { status: 503 });
     }
 
-    // SECURITY: Validate CRON_SECRET exists
-    const cronSecret = process.env.CRON_SECRET;
-    if (!cronSecret) {
-      console.error('CRON_SECRET not configured');
-      return NextResponse.json({ error: 'Service not configured' }, { status: 503 });
-    }
-
-    // Verificar authorization para el cron job
-    const authHeader = request.headers.get('authorization');
-    if (authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Verificar conexión a Supabase
+    if (!supabase) {
+      console.error('Supabase not configured');
+      return NextResponse.json({ error: 'Service not configured - missing Supabase' }, { status: 503 });
     }
 
     // Seleccionar categoría y tema aleatorio
     const category = getRandomCategory();
     const topic = getRandomTopic(category);
+
+    console.log(`Generating article about "${topic}" in category "${category.name}"...`);
 
     // Generar artículo con IA
     const prompt = `Escribe un artículo profesional de psicología sobre "${topic}" dentro de la categoría "${category.name}".
@@ -105,13 +132,14 @@ TIEMPO_LECTURA: [número estimado de minutos]`;
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Groq API error:', errorText);
-      return NextResponse.json({ error: 'Error generating article' }, { status: 500 });
+      return NextResponse.json({ error: 'Error generating article with AI', details: errorText }, { status: 500 });
     }
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content;
 
     if (!content) {
+      console.error('No content generated from AI');
       return NextResponse.json({ error: 'No content generated' }, { status: 500 });
     }
 
@@ -122,7 +150,7 @@ TIEMPO_LECTURA: [número estimado de minutos]`;
     const timeMatch = content.match(/TIEMPO_LECTURA:\s*(\d+)/);
 
     const title = titleMatch?.[1]?.trim() || `Guía sobre ${topic}`;
-    const excerpt = excerptMatch?.[1]?.trim() || '';
+    const excerpt = excerptMatch?.[1]?.trim() || content.substring(0, 150);
     const articleContent = contentMatch?.[1]?.trim() || content;
     const readTime = parseInt(timeMatch?.[1] || '5');
 
@@ -150,14 +178,17 @@ TIEMPO_LECTURA: [número estimado de minutos]`;
         tags: [topic, category.name.toLowerCase()],
         read_time: readTime,
         is_featured: false,
+        views: 0,
       })
       .select()
       .single();
 
     if (error) {
-      console.error('Error saving article:', error);
-      return NextResponse.json({ error: 'Error saving article' }, { status: 500 });
+      console.error('Error saving article to database:', error);
+      return NextResponse.json({ error: 'Error saving article', details: error.message }, { status: 500 });
     }
+
+    console.log(`Article generated successfully: "${title}"`);
 
     return NextResponse.json({
       success: true,
@@ -167,6 +198,24 @@ TIEMPO_LECTURA: [número estimado de minutos]`;
 
   } catch (error) {
     console.error('Generate article error:', error);
-    return NextResponse.json({ error: 'Error generating article' }, { status: 500 });
+    return NextResponse.json({ 
+      error: 'Error generating article', 
+      details: error instanceof Error ? error.message : 'Unknown error' 
+    }, { status: 500 });
   }
+}
+
+// GET - Para probar manualmente el endpoint (solo en desarrollo)
+export async function GET(request: NextRequest) {
+  const isDev = process.env.NODE_ENV === 'development';
+  const cronSecret = process.env.CRON_SECRET;
+  const authHeader = request.headers.get('authorization');
+
+  // Solo permitir en desarrollo o con CRON_SECRET
+  if (!isDev && (!cronSecret || authHeader !== `Bearer ${cronSecret}`)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // Redirigir a POST
+  return POST(request);
 }
