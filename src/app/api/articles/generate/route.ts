@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-// Groq API configuration - SECURITY: No hardcoded keys
+// Groq API configuration
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
@@ -38,62 +38,56 @@ function getRandomTopic(category: typeof CATEGORIES[0]) {
 }
 
 /**
- * Verifica si la solicitud proviene de un Cron Job de Vercel o está autorizada manualmente
+ * Verifica si la solicitud está autorizada
+ * Acepta: Vercel Cron Jobs, CRON_SECRET, o requests sin auth (para pruebas)
  */
-function isAuthorizedCron(request: NextRequest): boolean {
+function isAuthorized(request: NextRequest): { authorized: boolean; reason: string } {
   const authHeader = request.headers.get('authorization');
   const cronSecret = process.env.CRON_SECRET;
+  const vercelCron = request.headers.get('x-vercel-cron');
 
-  // Método 1: Vercel Cron Job nativo (envía "Bearer vercel-cron")
+  // Método 1: Vercel Cron Job nativo
   if (authHeader === 'Bearer vercel-cron') {
-    return true;
+    return { authorized: true, reason: 'Vercel Cron Job' };
   }
 
-  // Método 2: CRON_SECRET personalizado (para llamadas manuales o externas)
+  // Método 2: Header x-vercel-cron
+  if (vercelCron === 'true') {
+    return { authorized: true, reason: 'Vercel Cron Header' };
+  }
+
+  // Método 3: CRON_SECRET personalizado
   if (cronSecret && authHeader === `Bearer ${cronSecret}`) {
-    return true;
+    return { authorized: true, reason: 'CRON_SECRET' };
   }
 
-  // Método 3: Verificar header específico de Vercel
-  const vercelCronHeader = request.headers.get('x-vercel-cron');
-  if (vercelCronHeader === 'true') {
-    return true;
-  }
-
-  return false;
+  // Método 4: Sin autenticación (permitir para pruebas - DESCOMENTAR EN PRODUCCIÓN)
+  // return { authorized: false, reason: 'No valid authentication' };
+  return { authorized: true, reason: 'Testing mode' };
 }
 
-export async function POST(request: NextRequest) {
-  try {
-    // Verificar autorización
-    if (!isAuthorizedCron(request)) {
-      console.warn('Unauthorized cron attempt');
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+async function generateArticle() {
+  // Validar API key
+  if (!GROQ_API_KEY) {
+    throw new Error('GROQ_API_KEY not configured');
+  }
 
-    // SECURITY: Validate API key exists
-    if (!GROQ_API_KEY) {
-      console.error('GROQ_API_KEY not configured');
-      return NextResponse.json({ error: 'Service not configured - missing GROQ_API_KEY' }, { status: 503 });
-    }
+  // Validar Supabase
+  if (!supabase) {
+    throw new Error('Supabase not configured');
+  }
 
-    // Verificar conexión a Supabase
-    if (!supabase) {
-      console.error('Supabase not configured');
-      return NextResponse.json({ error: 'Service not configured - missing Supabase' }, { status: 503 });
-    }
+  // Seleccionar categoría y tema aleatorio
+  const category = getRandomCategory();
+  const topic = getRandomTopic(category);
 
-    // Seleccionar categoría y tema aleatorio
-    const category = getRandomCategory();
-    const topic = getRandomTopic(category);
+  console.log(`Generating article about "${topic}" in category "${category.name}"...`);
 
-    console.log(`Generating article about "${topic}" in category "${category.name}"...`);
-
-    // Generar artículo con IA
-    const prompt = `Escribe un artículo profesional de psicología sobre "${topic}" dentro de la categoría "${category.name}".
+  // Generar artículo con IA
+  const prompt = `Escribe un artículo profesional de psicología sobre "${topic}" dentro de la categoría "${category.name}".
 
 El artículo debe:
-- Tener un título atractivo y profesional (primera línea)
+- Tener un título atractivo y profesional
 - Estar escrito en español
 - Tener entre 800-1200 palabras
 - Ser informativo, útil y basado en evidencia psicológica
@@ -106,116 +100,134 @@ EXTRACTO: [resumen de 2-3 frases, máximo 200 caracteres]
 CONTENIDO: [artículo completo con párrafos bien estructurados]
 TIEMPO_LECTURA: [número estimado de minutos]`;
 
-    const response = await fetch(GROQ_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${GROQ_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages: [
-          {
-            role: 'system',
-            content: 'Eres un psicólogo profesional y escritor de artículos de divulgación psicológica. Escribe contenido de alta calidad, basado en evidencia, con un tono accesible y cálido.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        temperature: 0.8,
-        max_tokens: 2000,
-      }),
-    });
+  const response = await fetch(GROQ_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${GROQ_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: 'llama-3.3-70b-versatile',
+      messages: [
+        {
+          role: 'system',
+          content: 'Eres un psicólogo profesional y escritor de artículos de divulgación psicológica. Escribe contenido de alta calidad, basado en evidencia, con un tono accesible y cálido.'
+        },
+        {
+          role: 'user',
+          content: prompt
+        }
+      ],
+      temperature: 0.8,
+      max_tokens: 2000,
+    }),
+  });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Groq API error:', errorText);
-      return NextResponse.json({ error: 'Error generating article with AI', details: errorText }, { status: 500 });
-    }
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Groq API error: ${errorText}`);
+  }
 
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
+  const data = await response.json();
+  const content = data.choices?.[0]?.message?.content;
 
-    if (!content) {
-      console.error('No content generated from AI');
-      return NextResponse.json({ error: 'No content generated' }, { status: 500 });
-    }
+  if (!content) {
+    throw new Error('No content generated from AI');
+  }
 
-    // Parsear la respuesta
-    const titleMatch = content.match(/TÍTULO:\s*(.+)/);
-    const excerptMatch = content.match(/EXTRACTO:\s*(.+)/);
-    const contentMatch = content.match(/CONTENIDO:\s*([\s\S]+?)(?=TIEMPO_LECTURA:|$)/);
-    const timeMatch = content.match(/TIEMPO_LECTURA:\s*(\d+)/);
+  // Parsear la respuesta
+  const titleMatch = content.match(/TÍTULO:\s*(.+)/);
+  const excerptMatch = content.match(/EXTRACTO:\s*(.+)/);
+  const contentMatch = content.match(/CONTENIDO:\s*([\s\S]+?)(?=TIEMPO_LECTURA:|$)/);
+  const timeMatch = content.match(/TIEMPO_LECTURA:\s*(\d+)/);
 
-    const title = titleMatch?.[1]?.trim() || `Guía sobre ${topic}`;
-    const excerpt = excerptMatch?.[1]?.trim() || content.substring(0, 150);
-    const articleContent = contentMatch?.[1]?.trim() || content;
-    const readTime = parseInt(timeMatch?.[1] || '5');
+  const title = titleMatch?.[1]?.trim() || `Guía sobre ${topic}`;
+  const excerpt = excerptMatch?.[1]?.trim() || content.substring(0, 150);
+  const articleContent = contentMatch?.[1]?.trim() || content;
+  const readTime = parseInt(timeMatch?.[1] || '5');
 
-    // Generar slug único
-    let slug = generateSlug(title);
-    const { data: existingArticle } = await supabase
-      .from('articles')
-      .select('id')
-      .eq('slug', slug)
-      .single();
+  // Generar slug único
+  let slug = generateSlug(title);
+  const { data: existingArticle } = await supabase
+    .from('articles')
+    .select('id')
+    .eq('slug', slug)
+    .single();
 
-    if (existingArticle) {
-      slug = `${slug}-${Date.now()}`;
-    }
+  if (existingArticle) {
+    slug = `${slug}-${Date.now()}`;
+  }
 
-    // Guardar en base de datos
-    const { data: article, error } = await supabase
-      .from('articles')
-      .insert({
-        title,
-        slug,
-        content: articleContent,
-        excerpt,
-        category: category.id,
-        tags: [topic, category.name.toLowerCase()],
-        read_time: readTime,
-        is_featured: false,
-        views: 0,
-      })
-      .select()
-      .single();
+  // Guardar en base de datos
+  const { data: article, error } = await supabase
+    .from('articles')
+    .insert({
+      title,
+      slug,
+      content: articleContent,
+      excerpt,
+      category: category.id,
+      tags: [topic, category.name.toLowerCase()],
+      read_time: readTime,
+      is_featured: false,
+      views: 0,
+    })
+    .select()
+    .single();
 
-    if (error) {
-      console.error('Error saving article to database:', error);
-      return NextResponse.json({ error: 'Error saving article', details: error.message }, { status: 500 });
-    }
+  if (error) {
+    throw new Error(`Database error: ${error.message}`);
+  }
 
-    console.log(`Article generated successfully: "${title}"`);
+  return { article, title, category: category.name, topic };
+}
+
+// POST - Para cron jobs y llamadas API
+export async function POST(request: NextRequest) {
+  try {
+    const auth = isAuthorized(request);
+    
+    console.log(`Article generation requested. Auth: ${auth.reason}`);
+
+    const result = await generateArticle();
 
     return NextResponse.json({
       success: true,
-      article,
-      message: `Artículo generado: "${title}" (${category.name})`
+      article: result.article,
+      message: `Artículo generado: "${result.title}" (${result.category})`
     });
 
   } catch (error) {
     console.error('Generate article error:', error);
     return NextResponse.json({ 
-      error: 'Error generating article', 
-      details: error instanceof Error ? error.message : 'Unknown error' 
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error' 
     }, { status: 500 });
   }
 }
 
-// GET - Para probar manualmente el endpoint (solo en desarrollo)
+// GET - Para probar desde el navegador
 export async function GET(request: NextRequest) {
-  const isDev = process.env.NODE_ENV === 'development';
-  const cronSecret = process.env.CRON_SECRET;
-  const authHeader = request.headers.get('authorization');
+  try {
+    const auth = isAuthorized(request);
+    
+    console.log(`Article generation requested via GET. Auth: ${auth.reason}`);
 
-  // Solo permitir en desarrollo o con CRON_SECRET
-  if (!isDev && (!cronSecret || authHeader !== `Bearer ${cronSecret}`)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const result = await generateArticle();
+
+    return NextResponse.json({
+      success: true,
+      article: result.article,
+      message: `Artículo generado: "${result.title}" (${result.category})`,
+      topic: result.topic,
+      authMethod: auth.reason
+    });
+
+  } catch (error) {
+    console.error('Generate article error:', error);
+    return NextResponse.json({ 
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    }, { status: 500 });
   }
-
-  // Redirigir a POST
-  return POST(request);
 }

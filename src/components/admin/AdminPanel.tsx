@@ -12,10 +12,16 @@ import {
   Activity,
   RefreshCw,
   Lock,
-  Shield
+  Shield,
+  FileText,
+  Plus,
+  Loader2,
+  CheckCircle,
+  XCircle
 } from 'lucide-react';
 import { useUser } from '@/hooks/useUser';
 import { authGet, authPost } from '@/lib/api-client';
+import { useToast } from '@/hooks/use-toast';
 
 interface AdminStats {
   totalUsers: number;
@@ -38,10 +44,13 @@ interface UserItem {
 
 export default function AdminPanel() {
   const { user, isAdmin } = useUser();
+  const { toast } = useToast();
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [recentUsers, setRecentUsers] = useState<UserItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [generatingArticle, setGeneratingArticle] = useState(false);
+  const [lastArticleResult, setLastArticleResult] = useState<{success: boolean; message: string} | null>(null);
 
   const fetchData = async () => {
     setRefreshing(true);
@@ -96,6 +105,48 @@ export default function AdminPanel() {
       }
     } catch (error) {
       console.error('Error:', error);
+    }
+  };
+
+  const handleGenerateArticle = async () => {
+    setGeneratingArticle(true);
+    setLastArticleResult(null);
+    
+    try {
+      const response = await fetch('/api/articles/generate', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-email': user?.email || '',
+        },
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setLastArticleResult({ success: true, message: data.message });
+        toast({
+          title: 'Artículo generado',
+          description: data.message,
+        });
+      } else {
+        setLastArticleResult({ success: false, message: data.error });
+        toast({
+          title: 'Error',
+          description: data.error,
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Error desconocido';
+      setLastArticleResult({ success: false, message: errorMsg });
+      toast({
+        title: 'Error',
+        description: errorMsg,
+        variant: 'destructive',
+      });
+    } finally {
+      setGeneratingArticle(false);
     }
   };
 
@@ -207,6 +258,53 @@ export default function AdminPanel() {
           </Card>
         </div>
       )}
+
+      {/* Content Management */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <FileText className="h-5 w-5" />
+            Gestión de Contenido
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <div className="flex-1">
+              <p className="text-sm text-muted-foreground mb-2">
+                Genera artículos automáticamente usando IA. Los artículos se guardan en la base de datos 
+                y aparecen en la sección de artículos de la web.
+              </p>
+              {lastArticleResult && (
+                <div className={`flex items-center gap-2 text-sm ${lastArticleResult.success ? 'text-green-600' : 'text-red-600'}`}>
+                  {lastArticleResult.success ? (
+                    <CheckCircle className="h-4 w-4" />
+                  ) : (
+                    <XCircle className="h-4 w-4" />
+                  )}
+                  {lastArticleResult.message}
+                </div>
+              )}
+            </div>
+            <Button 
+              onClick={handleGenerateArticle} 
+              disabled={generatingArticle}
+              className="flex-shrink-0"
+            >
+              {generatingArticle ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Generando...
+                </>
+              ) : (
+                <>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Generar Artículo
+                </>
+              )}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Recent Users */}
       <Card>
