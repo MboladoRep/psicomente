@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useUser } from '@/hooks/useUser';
 import { useToast } from '@/hooks/use-toast';
+import { authPost, authDelete } from '@/lib/api-client';
 
 const emotions = [
   { id: 'feliz', label: 'Feliz', icon: Smile, color: 'text-yellow-500' },
@@ -85,18 +86,14 @@ export default function EmotionalDiary() {
     localStorage.setItem(STORAGE_ENTRIES_KEY, JSON.stringify(updatedEntries));
     setEntries(updatedEntries);
     
-    // Intentar guardar en la base de datos
+    // Intentar guardar en la base de datos con autenticación
     if (user?.email) {
-      fetch('/api/diary', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: user.email,
-          mood: intensity,
-          emotions: [selectedEmotion],
-          content: notes || `Me siento ${selectedEmotion} con intensidad ${intensity}/10`,
-        }),
-      }).catch(() => {});
+      authPost('/api/diary', {
+        email: user.email,
+        mood: intensity,
+        emotions: [selectedEmotion],
+        content: notes || `Me siento ${selectedEmotion} con intensidad ${intensity}/10`,
+      }, user).catch(() => {});
     }
     
     addPoints(15);
@@ -110,15 +107,17 @@ export default function EmotionalDiary() {
     setIsSaving(false);
   };
 
-  const handleDelete = (entryId: string) => {
+  const handleDelete = async (entryId: string) => {
     const updatedEntries = entries.filter(e => e.id !== entryId);
     localStorage.setItem(STORAGE_ENTRIES_KEY, JSON.stringify(updatedEntries));
     setEntries(updatedEntries);
     
     if (user?.email) {
-      fetch(`/api/diary?id=${entryId}&email=${encodeURIComponent(user.email)}`, {
-        method: 'DELETE',
-      }).catch(() => {});
+      try {
+        await authDelete(`/api/diary?id=${entryId}&email=${encodeURIComponent(user.email)}`, user);
+      } catch (error) {
+        console.error('Error deleting entry:', error);
+      }
     }
     
     toast({

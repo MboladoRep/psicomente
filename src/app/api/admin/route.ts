@@ -1,11 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { verifyAdminAccess } from '@/lib/auth-utils';
 
 export const dynamic = 'force-dynamic';
 
-// GET - Obtener estadísticas generales
+// GET - Obtener estadísticas generales (SOLO ADMIN)
 export async function GET(request: NextRequest) {
   try {
+    // SECURITY: Verify admin access
+    const authResult = await verifyAdminAccess(request);
+    
+    if (!authResult.authorized) {
+      return NextResponse.json(
+        { error: authResult.error || 'Acceso denegado', success: false },
+        { status: 403 }
+      );
+    }
+
     if (!supabase) {
       return NextResponse.json(
         { error: 'Database not available' },
@@ -71,11 +82,28 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST - Actualizar usuario (admin)
+// POST - Actualizar usuario (SOLO ADMIN)
 export async function POST(request: NextRequest) {
   try {
+    // SECURITY: Verify admin access
+    const authResult = await verifyAdminAccess(request);
+    
+    if (!authResult.authorized) {
+      return NextResponse.json(
+        { error: authResult.error || 'Acceso denegado', success: false },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const { userId, action } = body;
+
+    if (!userId || !action) {
+      return NextResponse.json(
+        { error: 'userId y action son requeridos', success: false },
+        { status: 400 }
+      );
+    }
 
     if (!supabase) {
       return NextResponse.json(
@@ -83,6 +111,9 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    // Log admin action for audit
+    console.log(`Admin action: ${action} on user ${userId} by ${authResult.email}`);
 
     switch (action) {
       case 'makePremium': {
@@ -124,6 +155,20 @@ export async function POST(request: NextRequest) {
       }
       
       case 'removeAdmin': {
+        // Prevent removing admin from yourself
+        const { data: targetUser } = await supabase
+          .from('users')
+          .select('email')
+          .eq('id', userId)
+          .single();
+
+        if (targetUser?.email === authResult.email) {
+          return NextResponse.json(
+            { error: 'No puedes remover tu propio rol de admin', success: false },
+            { status: 400 }
+          );
+        }
+
         const { error } = await supabase
           .from('users')
           .update({
@@ -136,6 +181,20 @@ export async function POST(request: NextRequest) {
       }
       
       case 'deleteUser': {
+        // Prevent deleting yourself
+        const { data: targetUser } = await supabase
+          .from('users')
+          .select('email')
+          .eq('id', userId)
+          .single();
+
+        if (targetUser?.email === authResult.email) {
+          return NextResponse.json(
+            { error: 'No puedes eliminar tu propia cuenta', success: false },
+            { status: 400 }
+          );
+        }
+
         const { error } = await supabase
           .from('users')
           .delete()

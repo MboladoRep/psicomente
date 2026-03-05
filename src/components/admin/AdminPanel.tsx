@@ -15,6 +15,7 @@ import {
   Shield
 } from 'lucide-react';
 import { useUser } from '@/hooks/useUser';
+import { authGet, authPost } from '@/lib/api-client';
 
 interface AdminStats {
   totalUsers: number;
@@ -36,7 +37,7 @@ interface UserItem {
 }
 
 export default function AdminPanel() {
-  const { isAdmin } = useUser();
+  const { user, isAdmin } = useUser();
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [recentUsers, setRecentUsers] = useState<UserItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,12 +46,14 @@ export default function AdminPanel() {
   const fetchData = async () => {
     setRefreshing(true);
     try {
-      const response = await fetch('/api/admin');
+      const response = await authGet('/api/admin', user);
       const data = await response.json();
       
       if (data.success) {
         setStats(data.stats);
         setRecentUsers(data.recentUsers || []);
+      } else if (response.status === 403) {
+        console.error('Access denied - not an admin');
       }
     } catch (error) {
       console.error('Error fetching admin data:', error);
@@ -61,19 +64,21 @@ export default function AdminPanel() {
   };
 
   useEffect(() => {
-    if (isAdmin) {
+    if (isAdmin && user) {
       fetchData();
     }
-  }, [isAdmin]);
+  }, [isAdmin, user]);
 
   const handleMakePremium = async (userId: string) => {
     try {
-      await fetch('/api/admin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, action: 'makePremium' }),
-      });
-      fetchData();
+      const response = await authPost('/api/admin', { userId, action: 'makePremium' }, user);
+      const data = await response.json();
+      
+      if (data.success) {
+        fetchData();
+      } else {
+        console.error('Failed to make premium:', data.error);
+      }
     } catch (error) {
       console.error('Error:', error);
     }
@@ -81,12 +86,14 @@ export default function AdminPanel() {
 
   const handleMakeAdmin = async (userId: string) => {
     try {
-      await fetch('/api/admin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, action: 'makeAdmin' }),
-      });
-      fetchData();
+      const response = await authPost('/api/admin', { userId, action: 'makeAdmin' }, user);
+      const data = await response.json();
+      
+      if (data.success) {
+        fetchData();
+      } else {
+        console.error('Failed to make admin:', data.error);
+      }
     } catch (error) {
       console.error('Error:', error);
     }

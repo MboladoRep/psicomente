@@ -4,8 +4,8 @@ import { supabase } from '@/lib/supabase';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-// Groq API configuration
-const GROQ_API_KEY = process.env.GROQ_API_KEY || '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';
+// Groq API configuration - SECURITY: No hardcoded keys
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
 // Categorías de artículos
@@ -39,10 +39,21 @@ function getRandomTopic(category: typeof CATEGORIES[0]) {
 
 export async function POST(request: NextRequest) {
   try {
+    // SECURITY: Validate API key exists
+    if (!GROQ_API_KEY) {
+      console.error('GROQ_API_KEY not configured');
+      return NextResponse.json({ error: 'Service not configured' }, { status: 503 });
+    }
+
+    // SECURITY: Validate CRON_SECRET exists
+    const cronSecret = process.env.CRON_SECRET;
+    if (!cronSecret) {
+      console.error('CRON_SECRET not configured');
+      return NextResponse.json({ error: 'Service not configured' }, { status: 503 });
+    }
+
     // Verificar authorization para el cron job
     const authHeader = request.headers.get('authorization');
-    const cronSecret = process.env.CRON_SECRET || 'psicomente-cron-secret';
-
     if (authHeader !== `Bearer ${cronSecret}`) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

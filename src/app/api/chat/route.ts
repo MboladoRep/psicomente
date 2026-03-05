@@ -1,13 +1,46 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { checkRateLimit, getClientIdentifier, RATE_LIMIT_CONFIGS } from '@/lib/rate-limit';
 
 export const maxDuration = 30;
 
-// Groq API configuration
-const GROQ_API_KEY = process.env.GROQ_API_KEY || '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';
+// Groq API configuration - SECURITY: No hardcoded keys
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
 export async function POST(request: NextRequest) {
   try {
+    // RATE LIMITING: Check if client has exceeded rate limit
+    const clientId = getClientIdentifier(request);
+    const rateLimitResult = checkRateLimit(clientId, RATE_LIMIT_CONFIGS.chat);
+    
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        { 
+          error: `Has excedido el límite de mensajes. Intenta de nuevo en ${rateLimitResult.retryAfter} segundos.`, 
+          success: false,
+          retryAfter: rateLimitResult.retryAfter 
+        },
+        { 
+          status: 429,
+          headers: {
+            'X-RateLimit-Limit': String(rateLimitResult.limit),
+            'X-RateLimit-Remaining': String(rateLimitResult.remaining),
+            'X-RateLimit-Reset': String(rateLimitResult.resetTime),
+            'Retry-After': String(rateLimitResult.retryAfter || 60),
+          }
+        }
+      );
+    }
+
+    // SECURITY: Validate API key exists
+    if (!GROQ_API_KEY) {
+      console.error('GROQ_API_KEY not configured');
+      return NextResponse.json(
+        { error: 'Servicio no configurado. Contacta al administrador.', success: false },
+        { status: 503 }
+      );
+    }
+
     const body = await request.json();
     const { message, category, history } = body;
 
@@ -98,9 +131,16 @@ IMPORTANTE:
       );
     }
 
+    // Return response with rate limit headers
     return NextResponse.json({ 
       response: responseContent,
       success: true 
+    }, {
+      headers: {
+        'X-RateLimit-Limit': String(rateLimitResult.limit),
+        'X-RateLimit-Remaining': String(rateLimitResult.remaining),
+        'X-RateLimit-Reset': String(rateLimitResult.resetTime),
+      }
     });
 
   } catch (error) {

@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { verifyAdminAccess } from '@/lib/auth-utils';
 
 export const dynamic = 'force-dynamic';
+
+// Fields that regular users can update on their own profile
+const ALLOWED_USER_UPDATE_FIELDS = ['name', 'avatar', 'lastActiveAt'];
+
+// Fields that only admins or system can update
+const PROTECTED_FIELDS = ['ispremium', 'premiumsince', 'role', 'points', 'level', 'streak'];
 
 // GET - Obtener usuario por email o crear si no existe
 export async function GET(request: NextRequest) {
@@ -54,10 +61,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ user, success: true });
     }
 
-    // Crear usuario nuevo si no existe
+    // Crear usuario nuevo si no existe (siempre como user normal, no premium)
     const { data: newUser, error: createError } = await supabase
       .from('users')
-      .insert([{ email, name: email.split('@')[0], role: 'user' }])
+      .insert([{ email, name: email.split('@')[0], role: 'user', ispremium: false }])
       .select()
       .single();
 
@@ -93,7 +100,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// PATCH - Actualizar usuario
+// PATCH - Actualizar usuario (SECURED)
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
@@ -113,20 +120,49 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
+    // Check if user is trying to update protected fields
+    const attemptedProtectedUpdates = PROTECTED_FIELDS.filter(field => field in updates);
+    
+    if (attemptedProtectedUpdates.length > 0) {
+      // Check if requester is admin
+      const authResult = await verifyAdminAccess(request);
+      
+      if (!authResult.authorized) {
+        console.warn(`Unauthorized attempt to update protected fields: ${attemptedProtectedUpdates.join(', ')} for email: ${email}`);
+        return NextResponse.json(
+          { error: 'No tienes permisos para actualizar estos campos', success: false },
+          { status: 403 }
+        );
+      }
+    }
+
     // Mapear campos de camelCase a los nombres de columna
+    // Only allow specific fields based on permissions
     const mappedUpdates: Record<string, unknown> = {
       updatedat: new Date().toISOString(),
     };
     
+    // Safe fields that users can update
     if (updates.name !== undefined) mappedUpdates.name = updates.name;
     if (updates.avatar !== undefined) mappedUpdates.avatar = updates.avatar;
+    if (updates.lastActiveAt !== undefined) mappedUpdates.lastactiveat = updates.lastActiveAt;
+    
+    // Gamification fields (users can earn points, but this should be done via game actions)
     if (updates.points !== undefined) mappedUpdates.points = updates.points;
     if (updates.level !== undefined) mappedUpdates.level = updates.level;
     if (updates.streak !== undefined) mappedUpdates.streak = updates.streak;
-    if (updates.isPremium !== undefined) mappedUpdates.ispremium = updates.isPremium;
-    if (updates.premiumSince !== undefined) mappedUpdates.premiumsince = updates.premiumSince;
-    if (updates.lastActiveAt !== undefined) mappedUpdates.lastactiveat = updates.lastActiveAt;
-    if (updates.role !== undefined) mappedUpdates.role = updates.role;
+    
+    // Protected fields (only admins or system can set these)
+    // These are only processed if admin access was verified above
+    if (updates.isPremium !== undefined && attemptedProtectedUpdates.includes('ispremium')) {
+      mappedUpdates.ispremium = updates.isPremium;
+    }
+    if (updates.premiumSince !== undefined && attemptedProtectedUpdates.includes('premiumsince')) {
+      mappedUpdates.premiumsince = updates.premiumSince;
+    }
+    if (updates.role !== undefined && attemptedProtectedUpdates.includes('role')) {
+      mappedUpdates.role = updates.role;
+    }
 
     const { data, error } = await supabase
       .from('users')
@@ -167,7 +203,8 @@ export async function PATCH(request: NextRequest) {
   }
 }
 
-// POST - Crear o actualizar usuario (upsert)
+// POST - Crear o actualizar usuario (upsert) - SECURED
+// This should only be used for creating users, not for granting premium
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -187,14 +224,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // SECURITY: Check if trying to set premium or admin role
+    const isTryingToSetPremium = isPremium === true;
+    const isTryingToSetAdmin = role === 'admin';
+    
+    if (isTryingToSetPremium || isTryingToSetAdmin) {
+      // Verify admin access
+      const authResult = await verifyAdminAccess(request);
+      
+      if (!authResult.authorized) {
+        console.warn(`Unauthorized attempt to create/update user with premium/admin status for email: ${email}`);
+        return NextResponse.json(
+          { error: 'No tienes permisos para realizar esta acción', success: false },
+          { status: 403 }
+        );
+      }
+    }
+
     const { data, error } = await supabase
       .from('users')
       .upsert({
         email,
         name: name || email.split('@')[0],
-        ispremium: isPremium ?? false,
-        premiumsince: premiumSince,
-        role: role || 'user',
+        // Only set premium if authorized (admin/system)
+        ispremium: isTryingToSetPremium ? isPremium : false,
+        premiumsince: isTryingToSetPremium ? premiumSince : null,
+        // Only set role if authorized and not trying to set admin without permission
+        role: isTryingToSetAdmin ? role : 'user',
         updatedat: new Date().toISOString(),
       }, {
         onConflict: 'email'
