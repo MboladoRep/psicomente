@@ -3,24 +3,26 @@ import { checkRateLimit, getClientIdentifier, RATE_LIMIT_CONFIGS } from '@/lib/r
 
 export const maxDuration = 30;
 
-// Groq API configuration - SECURITY: No hardcoded keys
-const GROQ_API_KEY = process.env.GROQ_API_KEY;
+// Groq API configuration
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
 export async function POST(request: NextRequest) {
   try {
+    // Read API key at runtime to ensure it's available
+    const GROQ_API_KEY = process.env.GROQ_API_KEY;
+
     // RATE LIMITING: Check if client has exceeded rate limit
     const clientId = getClientIdentifier(request);
     const rateLimitResult = checkRateLimit(clientId, RATE_LIMIT_CONFIGS.chat);
-    
+
     if (!rateLimitResult.success) {
       return NextResponse.json(
-        { 
-          error: `Has excedido el límite de mensajes. Intenta de nuevo en ${rateLimitResult.retryAfter} segundos.`, 
+        {
+          error: `Has excedido el límite de mensajes. Intenta de nuevo en ${rateLimitResult.retryAfter} segundos.`,
           success: false,
-          retryAfter: rateLimitResult.retryAfter 
+          retryAfter: rateLimitResult.retryAfter
         },
-        { 
+        {
           status: 429,
           headers: {
             'X-RateLimit-Limit': String(rateLimitResult.limit),
@@ -32,11 +34,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // SECURITY: Validate API key exists
+    // Validate API key exists
     if (!GROQ_API_KEY) {
-      console.error('GROQ_API_KEY not configured');
+      console.error('[Chat API] GROQ_API_KEY not configured in environment variables');
       return NextResponse.json(
-        { error: 'Servicio no configurado. Contacta al administrador.', success: false },
+        {
+          error: 'El servicio de chat no está configurado correctamente. Por favor, contacta al administrador y menciona que falta la API key de Groq.',
+          success: false,
+          errorCode: 'MISSING_API_KEY'
+        },
         { status: 503 }
       );
     }
@@ -98,6 +104,8 @@ IMPORTANTE:
     });
 
     // Call Groq API
+    console.log('[Chat API] Calling Groq API with model llama-3.3-70b-versatile');
+
     const response = await fetch(GROQ_API_URL, {
       method: 'POST',
       headers: {
@@ -114,7 +122,22 @@ IMPORTANTE:
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Groq API error:', errorText);
+      console.error('[Chat API] Groq API error:', response.status, errorText);
+
+      // Provide specific error messages based on status
+      if (response.status === 401) {
+        return NextResponse.json(
+          { error: 'Error de autenticación con el servicio de IA. Contacta al administrador.', success: false, errorCode: 'AUTH_ERROR' },
+          { status: 500 }
+        );
+      }
+      if (response.status === 429) {
+        return NextResponse.json(
+          { error: 'El servicio de IA está temporalmente saturado. Espera un momento e intenta de nuevo.', success: false, errorCode: 'RATE_LIMITED' },
+          { status: 429 }
+        );
+      }
+
       return NextResponse.json(
         { error: 'Error al conectar con el servicio de IA. Por favor, intenta de nuevo.', success: false },
         { status: 500 }
@@ -144,18 +167,23 @@ IMPORTANTE:
     });
 
   } catch (error) {
-    console.error('Chat API error:', error);
-    
+    console.error('[Chat API] Unexpected error:', error);
+
     let errorMessage = 'Error al procesar la consulta. Por favor, intenta de nuevo.';
-    
+    let errorCode = 'UNKNOWN_ERROR';
+
     if (error instanceof Error) {
       if (error.message.includes('timeout')) {
         errorMessage = 'La solicitud tardó demasiado. Por favor, intenta con un mensaje más corto.';
+        errorCode = 'TIMEOUT';
+      } else if (error.message.includes('fetch')) {
+        errorMessage = 'Error de conexión. Verifica tu conexión a internet.';
+        errorCode = 'NETWORK_ERROR';
       }
     }
-    
+
     return NextResponse.json(
-      { error: errorMessage, success: false },
+      { error: errorMessage, success: false, errorCode },
       { status: 500 }
     );
   }

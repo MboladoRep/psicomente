@@ -92,9 +92,26 @@ export default function ChatSection() {
         incrementChatCount();
         addPoints(10);
       } else {
-        throw new Error(data.error);
+        // Show specific error message from API
+        const errorMsg = data.error || 'No se pudo enviar el mensaje. Inténtalo de nuevo.';
+
+        // If it's a configuration error, show a more helpful message
+        if (data.errorCode === 'MISSING_API_KEY' || data.errorCode === 'AUTH_ERROR') {
+          toast({
+            title: 'Error de configuración',
+            description: 'El servicio de chat no está disponible temporalmente. Por favor, contacta al soporte.',
+            variant: 'destructive',
+          });
+        } else {
+          toast({
+            title: 'Error',
+            description: errorMsg,
+            variant: 'destructive',
+          });
+        }
       }
-    } catch {
+    } catch (error) {
+      console.error('Chat error:', error);
       toast({
         title: 'Error',
         description: 'No se pudo enviar el mensaje. Inténtalo de nuevo.',
