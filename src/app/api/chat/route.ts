@@ -11,6 +11,9 @@ export async function POST(request: NextRequest) {
     // Read API key at runtime to ensure it's available
     const GROQ_API_KEY = process.env.GROQ_API_KEY;
 
+    console.log('[Chat API] Request received');
+    console.log('[Chat API] GROQ_API_KEY exists:', !!GROQ_API_KEY);
+
     // RATE LIMITING: Check if client has exceeded rate limit
     const clientId = getClientIdentifier(request);
     const rateLimitResult = checkRateLimit(clientId, RATE_LIMIT_CONFIGS.chat);
@@ -47,7 +50,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
+    // Parse request body safely
+    let body;
+    try {
+      body = await request.json();
+    } catch (parseError) {
+      console.error('[Chat API] Failed to parse request body:', parseError);
+      return NextResponse.json(
+        { error: 'Error al procesar la solicitud. Formato inválido.', success: false, errorCode: 'INVALID_JSON' },
+        { status: 400 }
+      );
+    }
     const { message, category, history } = body;
 
     if (!message) {
