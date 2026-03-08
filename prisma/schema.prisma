@@ -1,0 +1,94 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL")
+}
+
+// Usuario de la aplicación - coincide con las tablas creadas en Supabase
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  name          String?
+  avatar        String?
+  isPremium     Boolean   @default(false)  @map("ispremium")
+  premiumSince  DateTime? @map("premiumsince")
+  points        Int       @default(0)
+  level         Int       @default(1)
+  streak        Int       @default(0)
+  lastActiveAt  DateTime? @default(now()) @map("lastactiveat")
+  createdAt     DateTime  @default(now()) @map("createdat")
+  updatedAt     DateTime  @updatedAt @map("updatedat")
+
+  diaryEntries    DiaryEntry[]
+  testResults     TestResult[]
+  chatMessages    ChatMessage[]
+
+  @@map("users")
+}
+
+// Entradas del diario emocional
+model DiaryEntry {
+  id          String   @id @default(uuid())
+  userId      String   @map("userid")
+  mood        Int      @default(3)
+  emotions    String[]
+  title       String?
+  content     String
+  isPrivate   Boolean  @default(true) @map("isprivate")
+  createdAt   DateTime @default(now()) @map("createdat")
+  updatedAt   DateTime @updatedAt @map("updatedat")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("diary_entries")
+}
+
+// Resultados de tests psicológicos
+model TestResult {
+  id           String   @id @default(uuid())
+  userId       String   @map("userid")
+  testType     String   @map("testtype")
+  testName     String?  @map("testname")
+  score        Int?
+  maxScore     Int?     @map("maxscore")
+  result       String?
+  answers      String?
+  completedAt  DateTime @default(now()) @map("completedat")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("test_results")
+}
+
+// Mensajes del chat con IA
+model ChatMessage {
+  id        String   @id @default(uuid())
+  userId    String   @map("userid")
+  role      String
+  content   String
+  createdAt DateTime @default(now()) @map("createdat")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("chat_messages")
+}
+
+// Consentimiento de cookies (RGPD)
+model CookieConsent {
+  id          String   @id @default(uuid())
+  ipAddress   String?  @map("ipaddress")
+  userAgent   String?  @map("useragent")
+  necessary   Boolean  @default(true)
+  analytics   Boolean  @default(false)
+  marketing   Boolean  @default(false)
+  consentedAt DateTime @default(now()) @map("consentedat")
+
+  @@map("cookie_consents")
+}
