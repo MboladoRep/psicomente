@@ -17,7 +17,14 @@ import {
   Plus,
   Loader2,
   CheckCircle,
-  XCircle
+  XCircle,
+  Home,
+  BarChart3,
+  ExternalLink,
+  Server,
+  Database,
+  MessageSquare,
+  AlertTriangle
 } from 'lucide-react';
 import { useUser } from '@/hooks/useUser';
 import { authGet, authPost } from '@/lib/api-client';
@@ -42,6 +49,12 @@ interface UserItem {
   role?: string;
 }
 
+interface SystemStatus {
+  groq: { status: 'ok' | 'error' | 'loading'; message: string };
+  database: { status: 'ok' | 'error' | 'loading'; message: string };
+  chat: { status: 'ok' | 'error' | 'loading'; message: string };
+}
+
 export default function AdminPanel() {
   const { user, isAdmin } = useUser();
   const { toast } = useToast();
@@ -51,6 +64,12 @@ export default function AdminPanel() {
   const [refreshing, setRefreshing] = useState(false);
   const [generatingArticle, setGeneratingArticle] = useState(false);
   const [lastArticleResult, setLastArticleResult] = useState<{success: boolean; message: string} | null>(null);
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [systemStatus, setSystemStatus] = useState<SystemStatus>({
+    groq: { status: 'loading', message: 'Verificando...' },
+    database: { status: 'loading', message: 'Verificando...' },
+    chat: { status: 'loading', message: 'Verificando...' },
+  });
 
   const fetchData = async () => {
     setRefreshing(true);
@@ -150,6 +169,66 @@ export default function AdminPanel() {
     }
   };
 
+  const checkSystemStatus = async () => {
+    setShowStatusModal(true);
+    setSystemStatus({
+      groq: { status: 'loading', message: 'Verificando...' },
+      database: { status: 'loading', message: 'Verificando...' },
+      chat: { status: 'loading', message: 'Verificando...' },
+    });
+
+    // Check Groq API
+    try {
+      const groqRes = await fetch('/api/test-groq');
+      const groqData = await groqRes.json();
+      setSystemStatus(prev => ({
+        ...prev,
+        groq: groqData.success 
+          ? { status: 'ok', message: 'API funcionando correctamente' }
+          : { status: 'error', message: groqData.body || groqData.error || 'Error desconocido' }
+      }));
+    } catch (error) {
+      setSystemStatus(prev => ({
+        ...prev,
+        groq: { status: 'error', message: 'Error de conexión' }
+      }));
+    }
+
+    // Check Database (via debug endpoint)
+    try {
+      const dbRes = await fetch('/api/debug');
+      const dbData = await dbRes.json();
+      setSystemStatus(prev => ({
+        ...prev,
+        database: dbData.success 
+          ? { status: 'ok', message: `Conectado - ${dbData.stats?.totalUsers || 0} usuarios` }
+          : { status: 'error', message: dbData.error || 'Error de conexión' }
+      }));
+    } catch (error) {
+      setSystemStatus(prev => ({
+        ...prev,
+        database: { status: 'error', message: 'Error de conexión' }
+      }));
+    }
+
+    // Check Chat API
+    try {
+      const chatRes = await fetch('/api/debug-chat');
+      const chatData = await chatRes.json();
+      setSystemStatus(prev => ({
+        ...prev,
+        chat: chatData.hasGroqKey 
+          ? { status: 'ok', message: `API Key configurada (${chatData.groqKeyLength} chars)` }
+          : { status: 'error', message: 'API Key no configurada' }
+      }));
+    } catch (error) {
+      setSystemStatus(prev => ({
+        ...prev,
+        chat: { status: 'error', message: 'Error de conexión' }
+      }));
+    }
+  };
+
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString('es-ES', {
       day: '2-digit',
@@ -183,16 +262,127 @@ export default function AdminPanel() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-2">
           <Shield className="h-6 w-6 text-primary" />
           <h2 className="text-2xl font-bold">Panel de Administración</h2>
         </div>
-        <Button onClick={fetchData} disabled={refreshing} size="sm">
-          <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-          Actualizar
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={() => window.location.href = '/'} variant="outline" size="sm">
+            <Home className="h-4 w-4 mr-2" />
+            Volver a la Web
+          </Button>
+          <Button onClick={checkSystemStatus} variant="outline" size="sm">
+            <BarChart3 className="h-4 w-4 mr-2" />
+            Estado del Sistema
+          </Button>
+          <Button onClick={fetchData} disabled={refreshing} size="sm">
+            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+            Actualizar
+          </Button>
+        </div>
       </div>
+
+      {/* System Status Modal */}
+      {showStatusModal && (
+        <Card className="border-2">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Server className="h-5 w-5" />
+                Estado del Sistema
+              </CardTitle>
+              <Button variant="ghost" size="sm" onClick={() => setShowStatusModal(false)}>
+                ×
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3">
+              {/* Groq API */}
+              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                <div className="flex items-center gap-3">
+                  {systemStatus.groq.status === 'loading' ? (
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  ) : systemStatus.groq.status === 'ok' ? (
+                    <CheckCircle className="h-5 w-5 text-green-500" />
+                  ) : (
+                    <XCircle className="h-5 w-5 text-red-500" />
+                  )}
+                  <div>
+                    <p className="font-medium text-sm flex items-center gap-2">
+                      <MessageSquare className="h-4 w-4" />
+                      Groq API (Chat IA)
+                    </p>
+                    <p className={`text-xs ${systemStatus.groq.status === 'error' ? 'text-red-500' : 'text-muted-foreground'}`}>
+                      {systemStatus.groq.message}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Database */}
+              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                <div className="flex items-center gap-3">
+                  {systemStatus.database.status === 'loading' ? (
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  ) : systemStatus.database.status === 'ok' ? (
+                    <CheckCircle className="h-5 w-5 text-green-500" />
+                  ) : (
+                    <XCircle className="h-5 w-5 text-red-500" />
+                  )}
+                  <div>
+                    <p className="font-medium text-sm flex items-center gap-2">
+                      <Database className="h-4 w-4" />
+                      Base de Datos
+                    </p>
+                    <p className={`text-xs ${systemStatus.database.status === 'error' ? 'text-red-500' : 'text-muted-foreground'}`}>
+                      {systemStatus.database.message}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Chat Config */}
+              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                <div className="flex items-center gap-3">
+                  {systemStatus.chat.status === 'loading' ? (
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  ) : systemStatus.chat.status === 'ok' ? (
+                    <CheckCircle className="h-5 w-5 text-green-500" />
+                  ) : (
+                    <XCircle className="h-5 w-5 text-red-500" />
+                  )}
+                  <div>
+                    <p className="font-medium text-sm flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4" />
+                      Configuración Chat
+                    </p>
+                    <p className={`text-xs ${systemStatus.chat.status === 'error' ? 'text-red-500' : 'text-muted-foreground'}`}>
+                      {systemStatus.chat.message}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Overall Status */}
+            <div className="mt-4 pt-4 border-t">
+              {systemStatus.groq.status === 'error' && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                  <strong>⚠️ Problema detectado:</strong> La API de Groq no está funcionando. 
+                  Verifica que la API Key sea correcta en Vercel (Settings → Environment Variables).
+                </div>
+              )}
+              {systemStatus.groq.status === 'ok' && systemStatus.database.status === 'ok' && (
+                <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
+                  <strong>✅ Todo funcionando correctamente</strong>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Stats */}
       {stats && (
