@@ -13,38 +13,54 @@ export async function GET(request: NextRequest) {
     const authHeader = request.headers.get('authorization');
     const adminEmail = request.headers.get('x-admin-email');
 
+    console.log('[Debug API] Request from:', adminEmail);
+
     // Validate admin access
     let isAdmin = false;
 
     // Method 1: Check via header email (from frontend admin session)
-    if (adminEmail && ADMIN_EMAILS.includes(adminEmail)) {
+    if (adminEmail && ADMIN_EMAILS.includes(adminEmail.toLowerCase())) {
       isAdmin = true;
+      console.log('[Debug API] Admin via ADMIN_EMAILS list');
     }
 
     // Method 2: Check via Bearer token (simple admin secret for server-to-server)
     const adminSecret = process.env.ADMIN_SECRET;
     if (authHeader && adminSecret && authHeader === `Bearer ${adminSecret}`) {
       isAdmin = true;
+      console.log('[Debug API] Admin via Bearer token');
     }
 
     // Method 3: Check database role if email provided
     if (adminEmail && supabase && !isAdmin) {
-      const { data: user } = await supabase
+      const { data: user, error } = await supabase
         .from('users')
         .select('role')
         .eq('email', adminEmail)
         .single();
-      
+
+      console.log('[Debug API] DB check result:', user, error);
+
       if (user?.role === 'admin') {
         isAdmin = true;
       }
     }
 
     if (!isAdmin) {
+      console.log('[Debug API] Access denied for:', adminEmail);
       return NextResponse.json(
-        { error: 'Unauthorized - Admin access required' },
+        { success: false, error: 'Unauthorized - Admin access required' },
         { status: 403 }
       );
+    }
+
+    // Get user count
+    let totalUsers = 0;
+    if (supabase) {
+      const { count } = await supabase
+        .from('users')
+        .select('*', { count: 'exact', head: true });
+      totalUsers = count || 0;
     }
 
     // Only return non-sensitive configuration status
@@ -71,14 +87,18 @@ export async function GET(request: NextRequest) {
     };
 
     return NextResponse.json({
+      success: true,
       diagnostics,
+      stats: {
+        totalUsers,
+      },
       timestamp: new Date().toISOString(),
     });
 
   } catch (error) {
     console.error('Debug endpoint error:', error);
     return NextResponse.json(
-      { error: 'Error checking diagnostics' },
+      { success: false, error: 'Error checking diagnostics' },
       { status: 500 }
     );
   }

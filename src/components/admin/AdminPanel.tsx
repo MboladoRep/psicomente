@@ -194,9 +194,13 @@ export default function AdminPanel() {
       }));
     }
 
-    // Check Database (via debug endpoint)
+    // Check Database (via debug endpoint) - include admin auth
     try {
-      const dbRes = await fetch('/api/debug');
+      const dbRes = await fetch('/api/debug', {
+        headers: {
+          'x-admin-email': user?.email || '',
+        },
+      });
       const dbData = await dbRes.json();
       setSystemStatus(prev => ({
         ...prev,
