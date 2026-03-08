@@ -15,7 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { useUser } from '@/hooks/useUser';
 import { useToast } from '@/hooks/use-toast';
-import { Brain, Mail, Lock, User, Loader2 } from 'lucide-react';
+import { Brain, Mail, Lock, User, Loader2, Crown, Sparkles } from 'lucide-react';
 import { signInWithGoogle } from '@/lib/firebase-auth';
 
 // Google Icon component
@@ -71,12 +71,28 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
 
       if (result.user) {
         // Login with Firebase user data
-        await login(result.user.name, result.user.email, result.user.avatar);
+        const loginResult = await login(result.user.name, result.user.email, result.user.avatar);
         
-        toast({
-          title: '¡Bienvenido!',
-          description: `Has iniciado sesión como ${result.user.name}`,
-        });
+        // Show appropriate welcome message based on premium status
+        if (loginResult.isPremium) {
+          toast({
+            title: '¡Bienvenido de nuevo! 👑',
+            description: (
+              <div className="flex items-center gap-2">
+                <span>Has iniciado sesión como <strong>{result.user.name}</strong>.</span>
+                <span className="flex items-center gap-1 text-amber-500 font-medium">
+                  <Crown className="h-4 w-4" />
+                  Eres usuario Premium
+                </span>
+              </div>
+            ),
+          });
+        } else {
+          toast({
+            title: '¡Bienvenido!',
+            description: `Has iniciado sesión como ${result.user.name}. ¡Explora PsicoMente!`,
+          });
+        }
         
         onClose();
       }
@@ -102,11 +118,29 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
       return;
     }
     
-    await login(loginData.email.split('@')[0] || 'Usuario', loginData.email);
-    toast({
-      title: '¡Bienvenido de nuevo!',
-      description: 'Has iniciado sesión correctamente.',
-    });
+    const loginResult = await login(loginData.email.split('@')[0] || 'Usuario', loginData.email);
+    
+    // Show appropriate message based on premium status
+    if (loginResult.isPremium) {
+      toast({
+        title: '¡Bienvenido de nuevo! 👑',
+        description: (
+          <div className="flex items-center gap-2">
+            <span>Has iniciado sesión correctamente.</span>
+            <span className="flex items-center gap-1 text-amber-500 font-medium">
+              <Crown className="h-4 w-4" />
+              Eres usuario Premium
+            </span>
+          </div>
+        ),
+      });
+    } else {
+      toast({
+        title: '¡Bienvenido de nuevo!',
+        description: 'Has iniciado sesión correctamente.',
+      });
+    }
+    
     setLoginData({ email: '', password: '' });
     onClose();
   };
