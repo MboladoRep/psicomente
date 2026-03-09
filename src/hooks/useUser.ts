@@ -86,7 +86,7 @@ export function useUser() {
             id: dbData.user?.id || firebaseUser.uid,
             name: dbData.user?.name || name,
             email,
-            isPremium: dbData.user?.isPremium || false,
+            isPremium: dbData.user?.isPremium === true,
             avatar,
             createdAt: dbData.user?.createdAt ? new Date(dbData.user.createdAt) : new Date(),
             role: (dbData.user?.role as UserRole) || 'user',
