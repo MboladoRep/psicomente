@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
         email: existingUser.email,
         name: existingUser.name,
         avatar: existingUser.avatar,
-        isPremium: existingUser.ispremium ?? false,
+        isPremium: existingUser.ispremium === true,
         premiumSince: existingUser.premiumsince,
         points: existingUser.points ?? 0,
         level: existingUser.level ?? 1,
