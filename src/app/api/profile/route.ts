@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
         email: user.email,
         name: user.name,
         avatar: user.avatar,
-        isPremium: user.ispremium ?? false,
+        isPremium: user.ispremium === true,
         premiumSince: user.premiumsince,
         role: user.role || 'user',
         createdAt: user.createdat,
