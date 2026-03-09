@@ -34,31 +34,84 @@ function calculateLevel(points: number): number {
 
 function getStoredUser(): User | null {
   if (typeof window === 'undefined') return null;
-  const stored = localStorage.getItem(STORAGE_KEY);
-  return stored ? JSON.parse(stored) : null;
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    return stored ? JSON.parse(stored) : null;
+  } catch {
+    return null;
+  }
 }
 
 function getStoredProgress(): UserProgress {
   if (typeof window === 'undefined') return defaultProgress;
-  const stored = localStorage.getItem(PROGRESS_KEY);
-  if (stored) {
-    const parsed = JSON.parse(stored);
-    return parsed;
+  try {
+    const stored = localStorage.getItem(PROGRESS_KEY);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch {
+    // ignore
   }
   return defaultProgress;
 }
 
 function getStoredChatCount(): number {
   if (typeof window === 'undefined') return 0;
-  const stored = localStorage.getItem(CHAT_COUNT_KEY);
-  if (stored) {
-    const parsed = JSON.parse(stored);
-    if (parsed.date !== new Date().toDateString()) {
-      return 0;
+  try {
+    const stored = localStorage.getItem(CHAT_COUNT_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (parsed.date !== new Date().toDateString()) {
+        return 0;
+      }
+      return parsed.count;
     }
-    return parsed.count;
+  } catch {
+    // ignore
   }
   return 0;
+}
+
+// Función helper para obtener y validar isPremium desde la API
+async function fetchUserPremiumStatus(email: string): Promise<{ 
+  isPremium: boolean; 
+  role: string;
+  user: Record<string, unknown> | null;
+}> {
+  try {
+    console.log('[fetchUserPremiumStatus] Fetching user data for:', email);
+    
+    const response = await fetch(`/api/user?email=${encodeURIComponent(email)}`);
+    
+    if (!response.ok) {
+      console.error('[fetchUserPremiumStatus] API error:', response.status);
+      return { isPremium: false, role: 'user', user: null };
+    }
+    
+    const data = await response.json();
+    console.log('[fetchUserPremiumStatus] Raw API response:', data);
+    
+    // Validar que data.user existe
+    if (!data.user) {
+      console.error('[fetchUserPremiumStatus] No user in response');
+      return { isPremium: false, role: 'user', user: null };
+    }
+    
+    // Obtener isPremium - validar que sea booleano true
+    const rawIsPremium = data.user.isPremium;
+    const isPremium = rawIsPremium === true;
+    
+    console.log('[fetchUserPremiumStatus] isPremium raw:', rawIsPremium, 'type:', typeof rawIsPremium, 'parsed:', isPremium);
+    
+    return { 
+      isPremium, 
+      role: data.user.role || 'user',
+      user: data.user 
+    };
+  } catch (error) {
+    console.error('[fetchUserPremiumStatus] Error:', error);
+    return { isPremium: false, role: 'user', user: null };
+  }
 }
 
 export function useUser() {
@@ -72,74 +125,45 @@ export function useUser() {
   useEffect(() => {
     const unsubscribe = onAuthStateChange(async (firebaseUser) => {
       if (firebaseUser && !sessionChecked) {
-        // User is signed in with Firebase (Google OAuth)
         const email = firebaseUser.email || '';
         const name = firebaseUser.displayName || email.split('@')[0] || 'Usuario';
         const avatar = firebaseUser.photoURL || undefined;
 
-        // Sync with database
-        try {
-          const dbResponse = await fetch(`/api/user?email=${encodeURIComponent(email)}`);
-          const dbData = await dbResponse.json();
+        console.log('[useUser-OAuth] Firebase user detected:', email);
 
-          // Debug: Log the raw response
-          console.log('[useUser-OAuth] API Response:', dbData);
-          console.log('[useUser-OAuth] isPremium raw value:', dbData.user?.isPremium);
+        // Obtener estado Premium desde la base de datos
+        const { isPremium, role, user: dbUser } = await fetchUserPremiumStatus(email);
 
-          // Ensure isPremium is a boolean (handle null, undefined, string, etc.)
-          const isPremiumFromDB = dbData.user?.isPremium === true;
+        const oauthUser: User = {
+          id: dbUser?.id as string || firebaseUser.uid,
+          name: (dbUser?.name as string) || name,
+          email,
+          isPremium,
+          avatar,
+          createdAt: dbUser?.createdAt ? new Date(dbUser.createdAt as string) : new Date(),
+          role: role as UserRole,
+        };
 
-          console.log('[useUser-OAuth] isPremium parsed:', isPremiumFromDB);
+        console.log('[useUser-OAuth] Setting user with isPremium:', isPremium);
 
-          const oauthUser: User = {
-            id: dbData.user?.id || firebaseUser.uid,
-            name: dbData.user?.name || name,
-            email,
-            isPremium: isPremiumFromDB,
-            avatar,
-            createdAt: dbData.user?.createdAt ? new Date(dbData.user.createdAt) : new Date(),
-            role: (dbData.user?.role as UserRole) || 'user',
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(oauthUser));
+        setUser(oauthUser);
+
+        if (dbUser) {
+          const initialProgress: UserProgress = {
+            points: (dbUser.points as number) || 0,
+            level: (dbUser.level as number) || 1,
+            streak: (dbUser.streak as number) || 0,
+            lastActiveDate: new Date().toDateString(),
+            totalActivities: 0,
+            achievements: [],
+            dailyChallengesCompleted: 0,
           };
-
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(oauthUser));
-          setUser(oauthUser);
-
-          if (dbData.user) {
-            const initialProgress: UserProgress = {
-              points: dbData.user.points || 0,
-              level: dbData.user.level || 1,
-              streak: dbData.user.streak || 0,
-              lastActiveDate: new Date().toDateString(),
-              totalActivities: 0,
-              achievements: [],
-              dailyChallengesCompleted: 0,
-            };
-            localStorage.setItem(PROGRESS_KEY, JSON.stringify(initialProgress));
-            setProgress(initialProgress);
-          }
-
-          window.dispatchEvent(new Event(USER_CHANGE_EVENT));
-        } catch {
-          // Continue with local user if DB fails
-          const oauthUser: User = {
-            id: firebaseUser.uid,
-            name,
-            email,
-            isPremium: false,
-            avatar,
-            createdAt: new Date(),
-            role: 'user',
-          };
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(oauthUser));
-          setUser(oauthUser);
+          localStorage.setItem(PROGRESS_KEY, JSON.stringify(initialProgress));
+          setProgress(initialProgress);
         }
-      } else if (!firebaseUser && sessionChecked) {
-        // User signed out from Firebase, clear local data
-        const storedUser = getStoredUser();
-        if (storedUser) {
-          // Keep the user logged in locally even if Firebase session ended
-          // This provides a better UX
-        }
+
+        window.dispatchEvent(new Event(USER_CHANGE_EVENT));
       }
       setSessionChecked(true);
     });
@@ -188,7 +212,6 @@ export function useUser() {
         level: calculateLevel(prev.points + points),
       };
       localStorage.setItem(PROGRESS_KEY, JSON.stringify(newProgress));
-      // Disparar evento para que otros componentes se actualicen
       queueMicrotask(() => {
         window.dispatchEvent(new Event(PROGRESS_CHANGE_EVENT));
       });
@@ -198,110 +221,61 @@ export function useUser() {
 
   const login = useCallback(async (name: string, email: string, avatar?: string): Promise<{ isPremium: boolean }> => {
     setIsLoading(true);
+    console.log('[useUser-login] Login attempt for:', email);
 
     const storedProgress = localStorage.getItem(PROGRESS_KEY);
     const localProgress = storedProgress ? JSON.parse(storedProgress) : defaultProgress;
 
-    try {
-      const response = await fetch(`/api/user?email=${encodeURIComponent(email)}`);
-      const data = await response.json();
+    // Obtener estado Premium desde la base de datos
+    const { isPremium, role, user: dbUser } = await fetchUserPremiumStatus(email);
 
-      // Debug: Log the raw response
-      console.log('[useUser] API Response:', data);
-      console.log('[useUser] User from DB:', data.user);
-      console.log('[useUser] isPremium raw value:', data.user?.isPremium);
+    const newUser: User = {
+      id: dbUser?.id as string || crypto.randomUUID(),
+      name: name || (dbUser?.name as string) || 'Usuario',
+      email,
+      isPremium,
+      avatar: avatar || undefined,
+      createdAt: dbUser?.createdAt ? new Date(dbUser.createdAt as string) : new Date(),
+      role: role as UserRole,
+    };
 
-      // Ensure isPremium is a boolean (handle null, undefined, string, etc.)
-      const isPremiumFromDB = data.user?.isPremium === true;
+    console.log('[useUser-login] Setting user with isPremium:', isPremium);
 
-      console.log('[useUser] isPremium parsed:', isPremiumFromDB);
-      
-      const newUser: User = {
-        id: data.user?.id || crypto.randomUUID(),
-        name: name || data.user?.name || 'Usuario',
-        email,
-        isPremium: isPremiumFromDB,
-        avatar: avatar || undefined,
-        createdAt: data.user?.createdAt ? new Date(data.user.createdAt) : new Date(),
-        role: (data.user?.role as UserRole) || 'user',
-      };
-      
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(newUser));
-      setUser(newUser);
-      
-      const dbPoints = data.user?.points || 0;
-      const dbLevel = data.user?.level || 1;
-      const bestPoints = Math.max(localProgress.points, dbPoints);
-      const bestLevel = Math.max(localProgress.level, dbLevel);
-      
-      const initialProgress: UserProgress = {
-        points: bestPoints,
-        level: bestLevel,
-        streak: data.user?.streak || localProgress.streak || 0,
-        lastActiveDate: new Date().toDateString(),
-        totalActivities: localProgress.totalActivities || 0,
-        achievements: localProgress.achievements || [],
-        dailyChallengesCompleted: localProgress.dailyChallengesCompleted || 0,
-      };
-      
-      localStorage.setItem(PROGRESS_KEY, JSON.stringify(initialProgress));
-      setProgress(initialProgress);
-      
-      // Disparar eventos para actualizar UI
-      window.dispatchEvent(new Event(USER_CHANGE_EVENT));
-      window.dispatchEvent(new Event(PROGRESS_CHANGE_EVENT));
-      
-      if (localProgress.points > dbPoints) {
-        fetch('/api/user', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email,
-            points: localProgress.points,
-            level: localProgress.level,
-          }),
-        }).catch(() => {});
-      }
-      
-      setIsLoading(false);
-      return { isPremium: isPremiumFromDB };
-    } catch {
-      const newUser: User = {
-        id: crypto.randomUUID(),
-        name,
-        email,
-        isPremium: false,
-        avatar: avatar || undefined,
-        createdAt: new Date(),
-        role: 'user',
-      };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(newUser));
-      setUser(newUser);
-      
-      const initialProgress: UserProgress = {
-        ...localProgress,
-        lastActiveDate: new Date().toDateString(),
-      };
-      localStorage.setItem(PROGRESS_KEY, JSON.stringify(initialProgress));
-      setProgress(initialProgress);
-      
-      window.dispatchEvent(new Event(USER_CHANGE_EVENT));
-      window.dispatchEvent(new Event(PROGRESS_CHANGE_EVENT));
-      
-      setIsLoading(false);
-      return { isPremium: false };
-    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(newUser));
+    setUser(newUser);
+
+    const dbPoints = (dbUser?.points as number) || 0;
+    const dbLevel = (dbUser?.level as number) || 1;
+    const bestPoints = Math.max(localProgress.points, dbPoints);
+    const bestLevel = Math.max(localProgress.level, dbLevel);
+
+    const initialProgress: UserProgress = {
+      points: bestPoints,
+      level: bestLevel,
+      streak: (dbUser?.streak as number) || localProgress.streak || 0,
+      lastActiveDate: new Date().toDateString(),
+      totalActivities: localProgress.totalActivities || 0,
+      achievements: localProgress.achievements || [],
+      dailyChallengesCompleted: localProgress.dailyChallengesCompleted || 0,
+    };
+
+    localStorage.setItem(PROGRESS_KEY, JSON.stringify(initialProgress));
+    setProgress(initialProgress);
+
+    window.dispatchEvent(new Event(USER_CHANGE_EVENT));
+    window.dispatchEvent(new Event(PROGRESS_CHANGE_EVENT));
+
+    setIsLoading(false);
+    return { isPremium };
   }, []);
 
   const logout = useCallback(async () => {
-    // Sign out from Firebase
     try {
       await signOutUser();
     } catch {
       // Continue with local logout even if Firebase logout fails
     }
-    
-    // Clear local storage
+
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(DIARY_KEY);
     setUser(null);
@@ -309,31 +283,12 @@ export function useUser() {
     window.dispatchEvent(new Event(USER_CHANGE_EVENT));
   }, []);
 
-  const upgradeToPremium = useCallback(() => {
-    if (user) {
-      const updated = { ...user, isPremium: true };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      setUser(updated);
-      window.dispatchEvent(new Event(USER_CHANGE_EVENT));
-      
-      fetch('/api/user', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: user.email,
-          isPremium: true,
-          premiumSince: new Date().toISOString(),
-        }),
-      }).catch(() => {});
-    }
-  }, [user]);
-
   const incrementChatCount = useCallback(() => {
     setChatCount(prev => {
       const newCount = prev + 1;
-      localStorage.setItem(CHAT_COUNT_KEY, JSON.stringify({ 
-        count: newCount, 
-        date: new Date().toDateString() 
+      localStorage.setItem(CHAT_COUNT_KEY, JSON.stringify({
+        count: newCount,
+        date: new Date().toDateString()
       }));
       return newCount;
     });
@@ -349,9 +304,8 @@ export function useUser() {
     return Math.max(0, 5 - chatCount);
   }, [user?.isPremium, chatCount]);
 
-  // Check if user is admin (by role OR by email as fallback)
+  // Check if user is admin
   const isAdmin = useMemo(() => {
-    // Fallback: el email del admin principal siempre tiene acceso
     const adminEmails = ['m.bolado79@gmail.com'];
     return user?.role === 'admin' || (user?.email && adminEmails.includes(user.email));
   }, [user?.role, user?.email]);
@@ -365,7 +319,6 @@ export function useUser() {
     saveUser,
     saveProgress,
     addPoints,
-    upgradeToPremium,
     chatCount,
     incrementChatCount,
     canUseChat,
