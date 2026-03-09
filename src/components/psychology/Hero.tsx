@@ -8,11 +8,12 @@ import {
   BookOpen, 
   Target, 
   Heart, 
-  TrendingUp,
   ChevronRight,
   Sparkles,
   Shield,
-  Clock
+  Clock,
+  Lock,
+  Zap
 } from 'lucide-react';
 
 export default function Hero() {
@@ -21,6 +22,25 @@ export default function Hero() {
     { icon: BookOpen, label: 'Artículos', desc: 'Recursos expertos', href: '#articulos' },
     { icon: Target, label: 'Tests', desc: 'Autoevaluaciones', href: '#tests' },
     { icon: Heart, label: 'Bienestar', desc: 'Mindfulness', href: '#mindfulness' },
+  ];
+
+  // Características reales del servicio (sin números falsos)
+  const realFeatures = [
+    { 
+      icon: Clock, 
+      label: 'Disponible 24/7', 
+      desc: 'Cuando lo necesites' 
+    },
+    { 
+      icon: Lock, 
+      label: '100% Privado', 
+      desc: 'Sin juicios ni prejuicios' 
+    },
+    { 
+      icon: Zap, 
+      label: 'Respuesta inmediata', 
+      desc: 'Sin esperas ni citas' 
+    },
   ];
 
   const scrollToSection = (href: string) => {
@@ -33,21 +53,21 @@ export default function Hero() {
   return (
     <section id="inicio" className="relative overflow-hidden">
       {/* Background gradient */}
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-accent/5" />
+      <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-background to-pink-500/5" />
       <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiM5QzkyQUMiIGZpbGwtb3BhY2l0eT0iMC4wNCI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMiIvPjwvZz48L2c+PC9zdmc+')] opacity-50" />
 
       <div className="relative container mx-auto px-4 py-16 lg:py-24">
         <div className="flex flex-col lg:flex-row items-center gap-12">
           {/* Content */}
           <div className="flex-1 text-center lg:text-left">
-            <Badge variant="secondary" className="mb-4 px-4 py-1.5 bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20">
-              <Sparkles className="h-3.5 w-3.5 mr-1.5 text-primary" />
+            <Badge variant="secondary" className="mb-4 px-4 py-1.5 bg-gradient-to-r from-purple-500/10 to-pink-500/10 border-purple-500/20">
+              <Sparkles className="h-3.5 w-3.5 mr-1.5 text-purple-600" />
               Tu espacio de bienestar mental
             </Badge>
 
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-6">
               Tu bienestar mental{' '}
-              <span className="bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-purple-600 via-pink-500 to-purple-600 bg-clip-text text-transparent">
                 comienza aquí
               </span>
             </h1>
@@ -58,7 +78,7 @@ export default function Hero() {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start mb-8">
-              <Button size="lg" className="text-lg px-8" asChild>
+              <Button size="lg" className="text-lg px-8 bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-700 hover:to-pink-600" asChild>
                 <a href="#chat">
                   <MessageCircle className="h-5 w-5 mr-2" />
                   Comenzar Gratis
@@ -75,15 +95,15 @@ export default function Hero() {
             {/* Trust badges */}
             <div className="flex flex-wrap gap-4 justify-center lg:justify-start text-sm text-muted-foreground">
               <div className="flex items-center gap-2">
-                <Shield className="h-4 w-4 text-primary" />
+                <Shield className="h-4 w-4 text-purple-600" />
                 <span>100% Privado</span>
               </div>
               <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-primary" />
+                <Clock className="h-4 w-4 text-purple-600" />
                 <span>Disponible 24/7</span>
               </div>
               <div className="flex items-center gap-2">
-                <Brain className="h-4 w-4 text-primary" />
+                <Brain className="h-4 w-4 text-purple-600" />
                 <span>IA Avanzada</span>
               </div>
             </div>
@@ -98,28 +118,23 @@ export default function Hero() {
                   onClick={() => scrollToSection(feature.href)}
                   className="group p-6 rounded-2xl bg-card border shadow-sm hover:shadow-md transition-all hover:scale-105 cursor-pointer"
                 >
-                  <feature.icon className="h-8 w-8 text-primary mb-3 group-hover:scale-110 transition-transform" />
+                  <feature.icon className="h-8 w-8 text-purple-600 mb-3 group-hover:scale-110 transition-transform" />
                   <h3 className="font-semibold mb-1">{feature.label}</h3>
                   <p className="text-sm text-muted-foreground">{feature.desc}</p>
                 </div>
               ))}
             </div>
 
-            {/* Stats */}
-            <div className="mt-6 p-6 rounded-2xl bg-gradient-to-r from-primary/10 to-accent/10 border">
+            {/* Características reales del servicio */}
+            <div className="mt-6 p-6 rounded-2xl bg-gradient-to-r from-purple-500/10 to-pink-500/10 border">
               <div className="grid grid-cols-3 gap-4 text-center">
-                <div>
-                  <div className="text-2xl font-bold text-primary">10K+</div>
-                  <div className="text-xs text-muted-foreground">Usuarios activos</div>
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-primary">50K+</div>
-                  <div className="text-xs text-muted-foreground">Consultas</div>
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-primary">4.9</div>
-                  <div className="text-xs text-muted-foreground">Valoración</div>
-                </div>
+                {realFeatures.map((feature, index) => (
+                  <div key={index}>
+                    <feature.icon className="h-6 w-6 text-purple-600 mx-auto mb-2" />
+                    <div className="text-sm font-semibold">{feature.label}</div>
+                    <div className="text-xs text-muted-foreground">{feature.desc}</div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
