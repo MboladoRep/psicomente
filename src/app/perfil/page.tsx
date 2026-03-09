@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useUser } from '@/hooks/useUser';
-import { Crown, Sparkles, User as UserIcon, Calendar, Trash2, LogOut, CheckCircle, Loader2 } from 'lucide-react';
+import { Crown, Sparkles, User as UserIcon, Calendar, LogOut, CheckCircle, Loader2 } from 'lucide-react';
 
 interface ProfileInfo {
   name: string;
@@ -72,17 +72,47 @@ export default function ProfilePage() {
   const { toast } = useToast();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState('info');
+  const [activeTab, setActiveTab] = useState<string>('info');
   const [loggingOut, setLoggingOut] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Load profile on mount
+  // Initialize profile with default values when user is available
   useEffect(() => {
     if (user?.email) {
       loadProfile();
+    } else if (user === null) {
+      // User is definitely not logged in
+      setLoading(false);
     }
-  }, [user?.email]);
+  }, [user?.email, user]);
+
+  // Set default profile from user data if API fails
+  useEffect(() => {
+    if (!loading && !profile && user) {
+      setProfile({
+        id: user.id || '',
+        email: user.email,
+        name: user.name || '',
+        avatar: user.avatar,
+        isPremium: user.isPremium ?? false,
+        premiumSince: undefined,
+        role: user.role || 'user',
+        createdAt: new Date().toISOString(),
+        profileInfo: {
+          name: user.name || '',
+          age: null,
+          occupation: '',
+          goals: [],
+          currentConcerns: '',
+          preferredTopics: [],
+          supportMethods: [],
+          medications: '',
+          notes: '',
+        },
+      });
+    }
+  }, [loading, profile, user]);
 
   const loadProfile = async () => {
     if (!user?.email) return;
@@ -219,7 +249,7 @@ export default function ProfilePage() {
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <Tabs defaultValue="info" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="info">Información</TabsTrigger>
           <TabsTrigger value="preferences">Preferencias</TabsTrigger>
