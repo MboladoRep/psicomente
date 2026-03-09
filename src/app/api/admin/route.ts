@@ -24,51 +24,70 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Obtener estadísticas de usuarios
-    const { count: totalUsers } = await supabase
+    // Obtener TODOS los usuarios sin límite para conteo preciso
+    const { data: allUsersData, error: allUsersError } = await supabase
       .from('users')
-      .select('*', { count: 'exact', head: true });
+      .select('id, email, name, ispremium, createdat, premiumsince, role, lastactiveat');
 
-    // Usuarios premium
-    const { count: premiumUsers } = await supabase
-      .from('users')
-      .select('*', { count: 'exact', head: true })
-      .eq('ispremium', true);
+    if (allUsersError) {
+      console.error('[Admin API] Error fetching users:', allUsersError);
+      return NextResponse.json(
+        { error: 'Error al obtener usuarios', success: false },
+        { status: 500 }
+      );
+    }
 
+    // Calcular estadísticas manualmente para mayor precisión
+    const totalUsers = allUsersData?.length || 0;
+    const premiumUsers = allUsersData?.filter(u => u.ispremium === true).length || 0;
+    const freeUsers = totalUsers - premiumUsers;
+    
     // Usuarios activos hoy
     const today = new Date().toISOString().split('T')[0];
-    const { count: activeToday } = await supabase
-      .from('users')
-      .select('*', { count: 'exact', head: true })
-      .gte('lastactiveat', today);
+    const activeToday = allUsersData?.filter(u => 
+      u.lastactiveat && u.lastactiveat >= today
+    ).length || 0;
 
     // Últimos usuarios registrados
-    const { data: recentUsers } = await supabase
-      .from('users')
-      .select('id, email, name, ispremium, createdat, premiumsince, role')
-      .order('createdat', { ascending: false })
-      .limit(10);
+    const recentUsers = allUsersData
+      ?.sort((a, b) => new Date(b.createdat).getTime() - new Date(a.createdat).getTime())
+      .slice(0, 10)
+      .map(u => ({
+        id: u.id,
+        email: u.email,
+        name: u.name,
+        isPremium: u.ispremium,
+        createdAt: u.createdat,
+        premiumSince: u.premiumsince,
+        role: u.role
+      }));
 
-    // Usuarios premium
-    const { data: premiumUsersList } = await supabase
-      .from('users')
-      .select('id, email, name, premiumsince')
-      .eq('ispremium', true)
-      .order('premiumsince', { ascending: false })
-      .limit(20);
+    // Usuarios premium para la lista
+    const premiumUsersList = allUsersData
+      ?.filter(u => u.ispremium === true)
+      .sort((a, b) => new Date(b.premiumsince || 0).getTime() - new Date(a.premiumsince || 0).getTime())
+      .slice(0, 20);
 
     // Calcular ingresos estimados (4.99€ por premium)
-    const estimatedRevenue = (premiumUsers || 0) * 4.99;
+    const estimatedRevenue = (premiumUsers * 4.99).toFixed(2);
+
+    console.log('[Admin API] Stats:', {
+      totalUsers,
+      premiumUsers,
+      freeUsers,
+      activeToday,
+      estimatedRevenue
+    });
 
     return NextResponse.json({
       success: true,
       stats: {
-        totalUsers: totalUsers || 0,
-        premiumUsers: premiumUsers || 0,
-        freeUsers: (totalUsers || 0) - (premiumUsers || 0),
-        activeToday: activeToday || 0,
-        estimatedRevenue: estimatedRevenue.toFixed(2),
-        conversionRate: totalUsers ? ((premiumUsers || 0) / totalUsers * 100).toFixed(1) : '0',
+        totalUsers,
+        premiumUsers,
+        freeUsers,
+        activeToday,
+        estimatedRevenue,
+        conversionRate: totalUsers ? ((premiumUsers / totalUsers) * 100).toFixed(1) : '0',
       },
       recentUsers: recentUsers || [],
       premiumUsersList: premiumUsersList || [],
