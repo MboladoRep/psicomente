@@ -95,6 +95,10 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
         }
         
         onClose();
+        
+        // Redirect to profile page
+        router.push('/perfil');
+        return;
       }
     } catch (error) {
       toast({
