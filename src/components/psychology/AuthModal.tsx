@@ -149,6 +149,9 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
     
     setLoginData({ email: '', password: '' });
     onClose();
+    
+    // Redirect to profile page
+    router.push('/perfil');
   };
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -163,13 +166,25 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
       return;
     }
     
-    await login(registerData.name || registerData.email.split('@')[0], registerData.email);
-    toast({
-      title: '¡Cuenta creada!',
-      description: `Bienvenido a PsicoMente, ${registerData.name || 'Usuario'}.`,
-    });
+    const loginResult = await login(registerData.name || registerData.email.split('@')[0], registerData.email);
+    
+    if (loginResult.isPremium) {
+      toast({
+        title: '¡Bienvenido! 👑',
+        description: `Bienvenido a PsicoMente, ${registerData.name || 'Usuario'}. Eres usuario Premium.`,
+      });
+    } else {
+      toast({
+        title: '¡Cuenta creada!',
+        description: `Bienvenido a PsicoMente, ${registerData.name || 'Usuario'}.`,
+      });
+    }
+    
     setRegisterData({ name: '', email: '', password: '' });
     onClose();
+    
+    // Redirect to profile page
+    router.push('/perfil');
   };
 
   return (
