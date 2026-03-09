@@ -259,7 +259,7 @@ export default function AdminPanel() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <RefreshCw className="h-8 w-8 animate-spin text-primary" />
+        <RefreshCw className="h-8 w-8 animate-spin text-purple-600" />
       </div>
     );
   }
@@ -268,7 +268,7 @@ export default function AdminPanel() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-2">
-          <Shield className="h-6 w-6 text-primary" />
+          <Shield className="h-6 w-6 text-purple-600" />
           <h2 className="text-2xl font-bold">Panel de Administración</h2>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -280,7 +280,7 @@ export default function AdminPanel() {
             <BarChart3 className="h-4 w-4 mr-2" />
             Estado del Sistema
           </Button>
-          <Button onClick={fetchData} disabled={refreshing} size="sm">
+          <Button onClick={fetchData} disabled={refreshing} size="sm" className="bg-purple-600 hover:bg-purple-700">
             <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
             Actualizar
           </Button>
@@ -289,11 +289,11 @@ export default function AdminPanel() {
 
       {/* System Status Modal */}
       {showStatusModal && (
-        <Card className="border-2">
+        <Card className="border-2 border-purple-200">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg flex items-center gap-2">
-                <Server className="h-5 w-5" />
+                <Server className="h-5 w-5 text-purple-600" />
                 Estado del Sistema
               </CardTitle>
               <Button variant="ghost" size="sm" onClick={() => setShowStatusModal(false)}>
@@ -403,7 +403,7 @@ export default function AdminPanel() {
           
           <Card>
             <CardContent className="pt-4">
-              <div className="flex items-center gap-2 text-amber-600 text-sm mb-1">
+              <div className="flex items-center gap-2 text-emerald-600 text-sm mb-1">
                 <Crown className="h-4 w-4" />
                 Premium
               </div>
@@ -433,7 +433,7 @@ export default function AdminPanel() {
           
           <Card>
             <CardContent className="pt-4">
-              <div className="flex items-center gap-2 text-green-600 text-sm mb-1">
+              <div className="flex items-center gap-2 text-emerald-600 text-sm mb-1">
                 <DollarSign className="h-4 w-4" />
                 Ingresos
               </div>
@@ -443,7 +443,7 @@ export default function AdminPanel() {
           
           <Card>
             <CardContent className="pt-4">
-              <div className="flex items-center gap-2 text-blue-600 text-sm mb-1">
+              <div className="flex items-center gap-2 text-purple-600 text-sm mb-1">
                 <TrendingUp className="h-4 w-4" />
                 Conversión
               </div>
@@ -457,7 +457,7 @@ export default function AdminPanel() {
       <Card>
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
-            <FileText className="h-5 w-5" />
+            <FileText className="h-5 w-5 text-purple-600" />
             Gestión de Contenido
           </CardTitle>
         </CardHeader>
@@ -482,7 +482,7 @@ export default function AdminPanel() {
             <Button 
               onClick={handleGenerateArticle} 
               disabled={generatingArticle}
-              className="flex-shrink-0"
+              className="flex-shrink-0 bg-purple-600 hover:bg-purple-700"
             >
               {generatingArticle ? (
                 <>
@@ -513,7 +513,7 @@ export default function AdminPanel() {
                 className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center text-white text-sm font-medium">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white text-sm font-medium">
                     {(u.name || u.email?.[0] || 'U')[0].toUpperCase()}
                   </div>
                   <div>
@@ -531,7 +531,7 @@ export default function AdminPanel() {
                   )}
                   {/* Premium Badge */}
                   {u.isPremium ? (
-                    <Badge className="bg-amber-500 text-xs">
+                    <Badge className="bg-emerald-500 text-xs">
                       <Crown className="h-3 w-3 mr-1" />
                       Premium
                     </Badge>
@@ -542,7 +542,7 @@ export default function AdminPanel() {
                         size="sm" 
                         variant="ghost"
                         onClick={() => handleMakePremium(u.id)}
-                        className="text-amber-600 hover:text-amber-700"
+                        className="text-emerald-600 hover:text-emerald-700"
                         title="Hacer Premium"
                       >
                         <Crown className="h-4 w-4" />
