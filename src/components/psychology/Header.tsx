@@ -27,7 +27,7 @@ import { useUser } from '@/hooks/useUser';
 import AuthModal from './AuthModal';
 
 export default function Header() {
-  const { user, progress, logout, upgradeToPremium, isAdmin } = useUser();
+  const { user, progress, logout, isAdmin } = useUser();
   const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -89,21 +89,12 @@ export default function Header() {
                   </Badge>
                 </div>
 
-                {/* Premium Badge or Upgrade Button */}
-                {user.isPremium ? (
+                {/* Premium Badge - Solo muestra si ES Premium */}
+                {user.isPremium && (
                   <Badge className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white border-0">
                     <Crown className="h-3 w-3 mr-1" />
                     Premium
                   </Badge>
-                ) : (
-                  <Button
-                    size="sm"
-                    onClick={() => document.getElementById('precios')?.scrollIntoView({ behavior: 'smooth' })}
-                    className="hidden sm:flex bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white"
-                  >
-                    <Crown className="h-4 w-4 mr-1" />
-                    Premium
-                  </Button>
                 )}
 
                 {/* User Menu */}
@@ -128,6 +119,12 @@ export default function Header() {
                     <div className="px-2 py-1.5">
                       <p className="text-sm font-medium">{user.name}</p>
                       <p className="text-xs text-muted-foreground">{user.email}</p>
+                      {user.isPremium && (
+                        <p className="text-xs text-emerald-600 flex items-center gap-1 mt-1">
+                          <Crown className="h-3 w-3" />
+                          Usuario Premium
+                        </p>
+                      )}
                     </div>
                     <DropdownMenuSeparator />
                     {/* Mi Perfil Link */}
@@ -144,12 +141,6 @@ export default function Header() {
                           <Shield className="h-4 w-4 mr-2 text-red-500" />
                           Panel Admin
                         </Link>
-                      </DropdownMenuItem>
-                    )}
-                    {!user.isPremium && (
-                      <DropdownMenuItem onClick={upgradeToPremium} className="text-emerald-600">
-                        <Crown className="h-4 w-4 mr-2" />
-                        Actualizar a Premium
                       </DropdownMenuItem>
                     )}
                     <DropdownMenuSeparator />
