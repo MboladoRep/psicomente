@@ -1,9 +1,19 @@
 // Sistema de versiones de PsicoMente
 // Actualizar este archivo con cada nuevo deploy
 
-export const VERSION = '1.3.0';
+export const VERSION = '1.4.0';
 
 export const VERSION_HISTORY = [
+  {
+    version: '1.4.0',
+    date: '2026-02-26',
+    changes: [
+      'Eliminadas estadísticas falsas del Hero',
+      'Añadidas características reales del servicio',
+      'Contenido honesto: 24/7, Privado, Respuesta inmediata',
+      'Mejorada honestidad y transparencia de la web',
+    ],
+  },
   {
     version: '1.3.0',
     date: '2026-02-26',
@@ -12,7 +22,6 @@ export const VERSION_HISTORY = [
       'Eliminado botón "Actualizar a Premium" del menú',
       'El sistema detecta automáticamente si el usuario es Premium',
       'Mejorado manejo de errores en la API de usuarios',
-      'Añadida validación robusta del campo ispremium',
     ],
   },
   {
