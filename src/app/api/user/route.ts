@@ -4,19 +4,16 @@ import { verifyAdminAccess } from '@/lib/auth-utils';
 
 export const dynamic = 'force-dynamic';
 
-// Fields that regular users can update on their own profile
-const ALLOWED_USER_UPDATE_FIELDS = ['name', 'avatar', 'lastActiveAt'];
-
-// Fields that only admins or system can update
-const PROTECTED_FIELDS = ['ispremium', 'premiumsince', 'role', 'points', 'level', 'streak'];
-
 // GET - Obtener usuario por email o crear si no existe
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const email = searchParams.get('email');
 
+    console.log('[API /user] GET request for email:', email);
+
     if (!email) {
+      console.log('[API /user] No email provided');
       return NextResponse.json(
         { error: 'Email es requerido', success: false },
         { status: 400 }
@@ -25,7 +22,7 @@ export async function GET(request: NextRequest) {
 
     // Check if supabase is available
     if (!supabase) {
-      console.error('Supabase client is not initialized');
+      console.error('[API /user] Supabase client is not initialized');
       return NextResponse.json(
         { error: 'Database connection not available', success: false },
         { status: 500 }
@@ -40,17 +37,24 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (fetchError && fetchError.code !== 'PGRST116') {
-      console.error('Error fetching user:', fetchError);
+      console.error('[API /user] Error fetching user:', fetchError);
     }
 
     if (existingUser) {
-      // Map database fields to camelCase for frontend
+      console.log('[API /user] Found user:', existingUser.email);
+      console.log('[API /user] ispremium field:', existingUser.ispremium, 'type:', typeof existingUser.ispremium);
+
+      // IMPORTANTE: Convertir a booleano de forma estricta
+      const isPremiumValue = existingUser.ispremium === true;
+      
+      console.log('[API /user] Parsed isPremium:', isPremiumValue);
+
       const user = {
         id: existingUser.id,
         email: existingUser.email,
-        name: existingUser.name,
+        name: existingUser.name || email.split('@')[0],
         avatar: existingUser.avatar,
-        isPremium: existingUser.ispremium === true,
+        isPremium: isPremiumValue,
         premiumSince: existingUser.premiumsince,
         points: existingUser.points ?? 0,
         level: existingUser.level ?? 1,
@@ -58,10 +62,14 @@ export async function GET(request: NextRequest) {
         createdAt: existingUser.createdat,
         role: existingUser.role || 'user',
       };
+
+      console.log('[API /user] Returning user with isPremium:', user.isPremium);
       return NextResponse.json({ user, success: true });
     }
 
-    // Crear usuario nuevo si no existe (siempre como user normal, no premium)
+    // Crear usuario nuevo si no existe
+    console.log('[API /user] User not found, creating new user');
+    
     const { data: newUser, error: createError } = await supabase
       .from('users')
       .insert([{ email, name: email.split('@')[0], role: 'user', ispremium: false }])
@@ -69,7 +77,7 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (createError) {
-      console.error('Error creating user:', createError);
+      console.error('[API /user] Error creating user:', createError);
       return NextResponse.json(
         { error: 'Error al crear usuario', success: false },
         { status: 500 }
@@ -81,7 +89,7 @@ export async function GET(request: NextRequest) {
       email: newUser.email,
       name: newUser.name,
       avatar: newUser.avatar,
-      isPremium: newUser.ispremium ?? false,
+      isPremium: false,
       premiumSince: newUser.premiumsince,
       points: newUser.points ?? 0,
       level: newUser.level ?? 1,
@@ -90,9 +98,11 @@ export async function GET(request: NextRequest) {
       role: newUser.role || 'user',
     };
 
+    console.log('[API /user] Created new user:', user.email);
     return NextResponse.json({ user, success: true });
+
   } catch (error) {
-    console.error('Error in user API:', error);
+    console.error('[API /user] Unexpected error:', error);
     return NextResponse.json(
       { error: 'Error al obtener usuario', success: false },
       { status: 500 }
@@ -120,15 +130,15 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    // Check if user is trying to update protected fields
+    // Protected fields that only admins can update
+    const PROTECTED_FIELDS = ['ispremium', 'premiumsince', 'role', 'points', 'level', 'streak'];
     const attemptedProtectedUpdates = PROTECTED_FIELDS.filter(field => field in updates);
-    
+
     if (attemptedProtectedUpdates.length > 0) {
-      // Check if requester is admin
       const authResult = await verifyAdminAccess(request);
-      
+
       if (!authResult.authorized) {
-        console.warn(`Unauthorized attempt to update protected fields: ${attemptedProtectedUpdates.join(', ')} for email: ${email}`);
+        console.warn(`[API /user] Unauthorized attempt to update protected fields for email: ${email}`);
         return NextResponse.json(
           { error: 'No tienes permisos para actualizar estos campos', success: false },
           { status: 403 }
@@ -136,24 +146,17 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
-    // Mapear campos de camelCase a los nombres de columna
-    // Only allow specific fields based on permissions
     const mappedUpdates: Record<string, unknown> = {
       updatedat: new Date().toISOString(),
     };
-    
-    // Safe fields that users can update
+
     if (updates.name !== undefined) mappedUpdates.name = updates.name;
     if (updates.avatar !== undefined) mappedUpdates.avatar = updates.avatar;
     if (updates.lastActiveAt !== undefined) mappedUpdates.lastactiveat = updates.lastActiveAt;
-    
-    // Gamification fields (users can earn points, but this should be done via game actions)
     if (updates.points !== undefined) mappedUpdates.points = updates.points;
     if (updates.level !== undefined) mappedUpdates.level = updates.level;
     if (updates.streak !== undefined) mappedUpdates.streak = updates.streak;
-    
-    // Protected fields (only admins or system can set these)
-    // These are only processed if admin access was verified above
+
     if (updates.isPremium !== undefined && attemptedProtectedUpdates.includes('ispremium')) {
       mappedUpdates.ispremium = updates.isPremium;
     }
@@ -172,7 +175,7 @@ export async function PATCH(request: NextRequest) {
       .single();
 
     if (error) {
-      console.error('Error updating user:', error);
+      console.error('[API /user] Error updating user:', error);
       return NextResponse.json(
         { error: 'Error al actualizar usuario', success: false },
         { status: 500 }
@@ -184,7 +187,7 @@ export async function PATCH(request: NextRequest) {
       email: data.email,
       name: data.name,
       avatar: data.avatar,
-      isPremium: data.ispremium ?? false,
+      isPremium: data.ispremium === true,
       premiumSince: data.premiumsince,
       points: data.points ?? 0,
       level: data.level ?? 1,
@@ -194,8 +197,9 @@ export async function PATCH(request: NextRequest) {
     };
 
     return NextResponse.json({ user, success: true });
+
   } catch (error) {
-    console.error('Error in user PATCH:', error);
+    console.error('[API /user] Error in PATCH:', error);
     return NextResponse.json(
       { error: 'Error al actualizar usuario', success: false },
       { status: 500 }
@@ -204,7 +208,6 @@ export async function PATCH(request: NextRequest) {
 }
 
 // POST - Crear o actualizar usuario (upsert) - SECURED
-// This should only be used for creating users, not for granting premium
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -224,16 +227,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // SECURITY: Check if trying to set premium or admin role
     const isTryingToSetPremium = isPremium === true;
     const isTryingToSetAdmin = role === 'admin';
-    
+
     if (isTryingToSetPremium || isTryingToSetAdmin) {
-      // Verify admin access
       const authResult = await verifyAdminAccess(request);
-      
+
       if (!authResult.authorized) {
-        console.warn(`Unauthorized attempt to create/update user with premium/admin status for email: ${email}`);
+        console.warn(`[API /user] Unauthorized attempt to create/update user with premium/admin status for email: ${email}`);
         return NextResponse.json(
           { error: 'No tienes permisos para realizar esta acción', success: false },
           { status: 403 }
@@ -246,10 +247,8 @@ export async function POST(request: NextRequest) {
       .upsert({
         email,
         name: name || email.split('@')[0],
-        // Only set premium if authorized (admin/system)
         ispremium: isTryingToSetPremium ? isPremium : false,
         premiumsince: isTryingToSetPremium ? premiumSince : null,
-        // Only set role if authorized and not trying to set admin without permission
         role: isTryingToSetAdmin ? role : 'user',
         updatedat: new Date().toISOString(),
       }, {
@@ -259,7 +258,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      console.error('Error upserting user:', error);
+      console.error('[API /user] Error upserting user:', error);
       return NextResponse.json(
         { error: 'Error al guardar usuario', success: false },
         { status: 500 }
@@ -271,7 +270,7 @@ export async function POST(request: NextRequest) {
       email: data.email,
       name: data.name,
       avatar: data.avatar,
-      isPremium: data.ispremium ?? false,
+      isPremium: data.ispremium === true,
       premiumSince: data.premiumsince,
       points: data.points ?? 0,
       level: data.level ?? 1,
@@ -281,8 +280,9 @@ export async function POST(request: NextRequest) {
     };
 
     return NextResponse.json({ user, success: true });
+
   } catch (error) {
-    console.error('Error in user POST:', error);
+    console.error('[API /user] Error in POST:', error);
     return NextResponse.json(
       { error: 'Error al guardar usuario', success: false },
       { status: 500 }
