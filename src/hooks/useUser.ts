@@ -82,11 +82,20 @@ export function useUser() {
           const dbResponse = await fetch(`/api/user?email=${encodeURIComponent(email)}`);
           const dbData = await dbResponse.json();
 
+          // Debug: Log the raw response
+          console.log('[useUser-OAuth] API Response:', dbData);
+          console.log('[useUser-OAuth] isPremium raw value:', dbData.user?.isPremium);
+
+          // Ensure isPremium is a boolean (handle null, undefined, string, etc.)
+          const isPremiumFromDB = dbData.user?.isPremium === true;
+
+          console.log('[useUser-OAuth] isPremium parsed:', isPremiumFromDB);
+
           const oauthUser: User = {
             id: dbData.user?.id || firebaseUser.uid,
             name: dbData.user?.name || name,
             email,
-            isPremium: dbData.user?.isPremium === true,
+            isPremium: isPremiumFromDB,
             avatar,
             createdAt: dbData.user?.createdAt ? new Date(dbData.user.createdAt) : new Date(),
             role: (dbData.user?.role as UserRole) || 'user',
@@ -189,15 +198,23 @@ export function useUser() {
 
   const login = useCallback(async (name: string, email: string, avatar?: string): Promise<{ isPremium: boolean }> => {
     setIsLoading(true);
-    
+
     const storedProgress = localStorage.getItem(PROGRESS_KEY);
     const localProgress = storedProgress ? JSON.parse(storedProgress) : defaultProgress;
-    
+
     try {
       const response = await fetch(`/api/user?email=${encodeURIComponent(email)}`);
       const data = await response.json();
-      
-      const isPremiumFromDB = data.user?.isPremium || false;
+
+      // Debug: Log the raw response
+      console.log('[useUser] API Response:', data);
+      console.log('[useUser] User from DB:', data.user);
+      console.log('[useUser] isPremium raw value:', data.user?.isPremium);
+
+      // Ensure isPremium is a boolean (handle null, undefined, string, etc.)
+      const isPremiumFromDB = data.user?.isPremium === true;
+
+      console.log('[useUser] isPremium parsed:', isPremiumFromDB);
       
       const newUser: User = {
         id: data.user?.id || crypto.randomUUID(),
