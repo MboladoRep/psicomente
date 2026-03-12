@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -27,9 +27,11 @@ import {
   Twitter,
   Link2,
   MessageCircle,
-  X,
   Check,
-  Eye
+  Eye,
+  Download,
+  Image as ImageIcon,
+  ExternalLink
 } from 'lucide-react';
 import { useUser } from '@/hooks/useUser';
 import { useToast } from '@/hooks/use-toast';
@@ -69,6 +71,16 @@ const categoryLabels: Record<string, string> = {
   desarrollo: 'Desarrollo',
 };
 
+const categoryColors: Record<string, string> = {
+  ansiedad: '#7C3AED',
+  depresion: '#3B82F6',
+  relaciones: '#EC4899',
+  autoestima: '#F59E0B',
+  estres: '#10B981',
+  mindfulness: '#8B5CF6',
+  desarrollo: '#06B6D4',
+};
+
 const categories = [
   { id: 'todos', label: 'Todos' },
   { id: 'ansiedad', label: 'Ansiedad' },
@@ -80,7 +92,6 @@ const categories = [
   { id: 'desarrollo', label: 'Desarrollo' },
 ];
 
-// Imágenes por defecto para categorías
 const defaultImages: Record<string, string> = {
   ansiedad: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600&h=400&fit=crop',
   depresion: 'https://images.unsplash.com/photo-1470252649378-9c29740c9fa8?w=600&h=400&fit=crop',
@@ -101,6 +112,8 @@ export default function ArticlesSection() {
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [articleToShare, setArticleToShare] = useState<Article | null>(null);
   const [copied, setCopied] = useState(false);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     fetchArticles();
@@ -137,6 +150,10 @@ export default function ArticlesSection() {
     return categoryLabels[category] || category;
   };
 
+  const getCategoryColor = (category: string) => {
+    return categoryColors[category] || '#7C3AED';
+  };
+
   const getImageUrl = (article: Article) => {
     return article.image_url || defaultImages[article.category] || defaultImages.ansiedad;
   };
@@ -148,18 +165,177 @@ export default function ArticlesSection() {
     setCopied(false);
   };
 
-  const shareToInstagram = () => {
-    if (!articleToShare) return;
-    // Instagram no permite compartir enlaces directamente, pero podemos copiar el enlace
-    // y mostrar instrucciones
-    const text = `${articleToShare.title}\n\n${articleToShare.excerpt}\n\nLee más en PsicoMente`;
-    navigator.clipboard.writeText(text);
-    toast({
-      title: '¡Copiado!',
-      description: 'El texto se ha copiado. Pégalo en tu historia o publicación de Instagram.',
-    });
+  // Generar imagen para Instagram (1080x1080 cuadrado)
+  const generateInstagramImage = async () => {
+    if (!articleToShare || !canvasRef.current) return;
+    
+    setIsGeneratingImage(true);
+    
+    try {
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      // Tamaño Instagram Feed (1080x1080)
+      canvas.width = 1080;
+      canvas.height = 1080;
+
+      const color = getCategoryColor(articleToShare.category);
+
+      // Fondo con gradiente
+      const gradient = ctx.createLinearGradient(0, 0, 1080, 1080);
+      gradient.addColorStop(0, color + '20');
+      gradient.addColorStop(1, '#FFFFFF');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, 1080, 1080);
+
+      // Cargar y dibujar imagen del artículo
+      const img = new window.Image();
+      img.crossOrigin = 'anonymous';
+      
+      await new Promise<void>((resolve) => {
+        img.onload = () => {
+          // Dibujar imagen circular en la parte superior
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(540, 280, 180, 0, Math.PI * 2);
+          ctx.closePath();
+          ctx.clip();
+          
+          // Escalar y centrar imagen
+          const scale = Math.max(360 / img.width, 360 / img.height);
+          const x = 540 - (img.width * scale) / 2;
+          const y = 280 - (img.height * scale) / 2;
+          ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+          ctx.restore();
+          
+          // Borde de la imagen
+          ctx.beginPath();
+          ctx.arc(540, 280, 180, 0, Math.PI * 2);
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 6;
+          ctx.stroke();
+          
+          resolve();
+        };
+        img.onerror = () => resolve();
+        img.src = getImageUrl(articleToShare);
+      });
+
+      // Categoría badge
+      ctx.fillStyle = color;
+      roundRect(ctx, 400, 500, 280, 45, 22);
+      ctx.fill();
+      
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 22px system-ui, -apple-system, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(getCategoryLabel(articleToShare.category).toUpperCase(), 540, 530);
+
+      // Título
+      ctx.fillStyle = '#1F2937';
+      ctx.font = 'bold 42px system-ui, -apple-system, sans-serif';
+      ctx.textAlign = 'center';
+      
+      // Dividir título en líneas
+      const titleLines = wrapText(ctx, articleToShare.title, 900);
+      let titleY = 600;
+      titleLines.forEach((line: string) => {
+        ctx.fillText(line, 540, titleY);
+        titleY += 55;
+      });
+
+      // Extracto
+      ctx.fillStyle = '#6B7280';
+      ctx.font = '26px system-ui, -apple-system, sans-serif';
+      const excerptLines = wrapText(ctx, articleToShare.excerpt || '', 850);
+      let excerptY = titleY + 30;
+      excerptLines.slice(0, 3).forEach((line: string) => {
+        ctx.fillText(line, 540, excerptY);
+        excerptY += 38;
+      });
+
+      // Logo y URL
+      ctx.fillStyle = color;
+      ctx.font = 'bold 32px system-ui, -apple-system, sans-serif';
+      ctx.fillText('🧠 PsicoMente', 540, 950);
+
+      ctx.fillStyle = '#9CA3AF';
+      ctx.font = '22px system-ui, -apple-system, sans-serif';
+      ctx.fillText('psicamente.com', 540, 990);
+
+      // Tiempo de lectura
+      ctx.fillStyle = '#9CA3AF';
+      ctx.font = '20px system-ui, -apple-system, sans-serif';
+      ctx.fillText(`${articleToShare.read_time} min de lectura`, 540, 1020);
+
+      // Descargar imagen
+      const link = document.createElement('a');
+      link.download = `psicomente-${articleToShare.slug}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+
+      toast({
+        title: '¡Imagen descargada! 📸',
+        description: 'Ya puedes subirla a tu Instagram. El texto también se ha copiado.',
+      });
+
+      // También copiar el texto
+      const shareText = `${articleToShare.title}\n\n${articleToShare.excerpt}\n\n📖 Lee el artículo completo en PsicoMente\n🔗 psicamente.com/articulo/${articleToShare.slug}`;
+      navigator.clipboard.writeText(shareText);
+
+    } catch (error) {
+      console.error('Error generating image:', error);
+      toast({
+        title: 'Error',
+        description: 'No se pudo generar la imagen',
+        variant: 'destructive',
+      });
+    }
+    
+    setIsGeneratingImage(false);
     setShowShareDialog(false);
   };
+
+  // Función helper para dibujar rectángulos redondeados
+  function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) {
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + width - radius, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+    ctx.lineTo(x + width, y + height - radius);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+    ctx.lineTo(x + radius, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.closePath();
+  }
+
+  // Función para dividir texto en líneas
+  function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
+    const words = text.split(' ');
+    const lines: string[] = [];
+    let currentLine = '';
+
+    words.forEach(word => {
+      const testLine = currentLine + (currentLine ? ' ' : '') + word;
+      const metrics = ctx.measureText(testLine);
+      
+      if (metrics.width > maxWidth && currentLine) {
+        lines.push(currentLine);
+        currentLine = word;
+      } else {
+        currentLine = testLine;
+      }
+    });
+    
+    if (currentLine) {
+      lines.push(currentLine);
+    }
+    
+    return lines;
+  }
 
   const shareToTwitter = () => {
     if (!articleToShare) return;
@@ -191,6 +367,9 @@ export default function ArticlesSection() {
 
   return (
     <section id="articulos" className="py-16 bg-gradient-to-b from-background to-purple-500/5">
+      {/* Canvas oculto para generar imágenes */}
+      <canvas ref={canvasRef} style={{ display: 'none' }} />
+      
       <div className="container mx-auto px-4">
         <div className="text-center mb-8">
           <Badge variant="secondary" className="mb-2 bg-purple-500/10">
@@ -224,7 +403,6 @@ export default function ArticlesSection() {
             <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
           </div>
         ) : (
-          /* Articles Grid */
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {displayArticles.map((article) => {
               const Icon = getCategoryIcon(article.category);
@@ -234,10 +412,9 @@ export default function ArticlesSection() {
               return (
                 <Card 
                   key={article.id} 
-                  className={`group cursor-pointer transition-all hover:shadow-lg overflow-hidden ${isPremium && !user?.isPremium ? 'relative' : ''}`}
+                  className="group cursor-pointer transition-all hover:shadow-lg overflow-hidden"
                   onClick={() => canAccess && setSelectedArticle(article)}
                 >
-                  {/* Article Image */}
                   <div className="relative h-48 overflow-hidden">
                     <img 
                       src={getImageUrl(article)} 
@@ -246,14 +423,12 @@ export default function ArticlesSection() {
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                     
-                    {/* Category Badge on Image */}
                     <div className="absolute top-3 left-3">
                       <Badge className="bg-purple-600/90 text-white">
                         {getCategoryLabel(article.category)}
                       </Badge>
                     </div>
 
-                    {/* Share Button */}
                     <Button
                       size="icon"
                       variant="secondary"
@@ -263,13 +438,11 @@ export default function ArticlesSection() {
                       <Share2 className="h-4 w-4" />
                     </Button>
 
-                    {/* Views Badge */}
                     <div className="absolute bottom-3 right-3 flex items-center gap-1 text-white text-xs">
                       <Eye className="h-3 w-3" />
                       {article.views || 0}
                     </div>
 
-                    {/* Premium Overlay */}
                     {isPremium && !user?.isPremium && (
                       <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center">
                         <div className="text-center">
@@ -310,7 +483,6 @@ export default function ArticlesSection() {
           </div>
         )}
 
-        {/* Empty State */}
         {!isLoading && articles.length === 0 && (
           <div className="text-center py-12">
             <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
@@ -327,27 +499,22 @@ export default function ArticlesSection() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           {selectedArticle && (
             <>
-              {selectedArticle.image_url && (
-                <div className="relative h-64 -mx-6 -mt-6 mb-4 overflow-hidden rounded-t-lg">
-                  <img 
-                    src={getImageUrl(selectedArticle)} 
-                    alt={selectedArticle.title}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                  <div className="absolute bottom-4 left-4 right-4">
-                    <Badge className="bg-purple-600 text-white mb-2">
-                      {getCategoryLabel(selectedArticle.category)}
-                    </Badge>
-                    <h2 className="text-2xl font-bold text-white">{selectedArticle.title}</h2>
-                  </div>
+              <div className="relative h-64 -mx-6 -mt-6 mb-4 overflow-hidden rounded-t-lg">
+                <img 
+                  src={getImageUrl(selectedArticle)} 
+                  alt={selectedArticle.title}
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                <div className="absolute bottom-4 left-4 right-4">
+                  <Badge className="bg-purple-600 text-white mb-2">
+                    {getCategoryLabel(selectedArticle.category)}
+                  </Badge>
+                  <h2 className="text-2xl font-bold text-white">{selectedArticle.title}</h2>
                 </div>
-              )}
+              </div>
               
               <DialogHeader>
-                {!selectedArticle.image_url && (
-                  <DialogTitle className="text-xl">{selectedArticle.title}</DialogTitle>
-                )}
                 <DialogDescription className="flex items-center gap-4 text-sm">
                   <span className="flex items-center gap-1">
                     <Clock className="h-4 w-4" />
@@ -368,7 +535,6 @@ export default function ArticlesSection() {
                 ))}
               </div>
 
-              {/* Share Buttons */}
               <div className="flex items-center justify-between mt-6 pt-4 border-t">
                 <span className="text-sm text-muted-foreground">Compartir:</span>
                 <div className="flex gap-2">
@@ -377,8 +543,9 @@ export default function ArticlesSection() {
                     variant="outline"
                     onClick={() => {
                       setArticleToShare(selectedArticle);
-                      shareToInstagram();
+                      setShowShareDialog(true);
                     }}
+                    className="bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 text-white border-0"
                   >
                     <Instagram className="h-4 w-4 mr-1" />
                     Instagram
@@ -412,70 +579,104 @@ export default function ArticlesSection() {
         </DialogContent>
       </Dialog>
 
-      {/* Share Dialog */}
+      {/* Share Dialog con Instagram mejorado */}
       <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Share2 className="h-5 w-5 text-purple-600" />
-              Compartir artículo
+              <Instagram className="h-5 w-5 text-pink-500" />
+              Compartir en Instagram
             </DialogTitle>
             <DialogDescription>
               {articleToShare?.title}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-3 mt-4">
-            <Button 
-              onClick={shareToInstagram}
-              className="justify-start bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 hover:opacity-90"
-            >
-              <Instagram className="h-5 w-5 mr-3" />
-              Compartir en Instagram
-            </Button>
-            
-            <Button 
-              onClick={shareToTwitter}
-              variant="outline"
-              className="justify-start"
-            >
-              <Twitter className="h-5 w-5 mr-3 text-sky-500" />
-              Compartir en Twitter
-            </Button>
-            
-            <Button 
-              onClick={shareToWhatsApp}
-              variant="outline"
-              className="justify-start"
-            >
-              <MessageCircle className="h-5 w-5 mr-3 text-green-500" />
-              Compartir en WhatsApp
-            </Button>
-            
-            <Button 
-              onClick={copyLink}
-              variant="outline"
-              className="justify-start"
-            >
-              {copied ? (
-                <>
-                  <Check className="h-5 w-5 mr-3 text-green-500" />
-                  ¡Enlace copiado!
-                </>
-              ) : (
-                <>
-                  <Link2 className="h-5 w-5 mr-3" />
-                  Copiar enlace
-                </>
-              )}
-            </Button>
-          </div>
+          <div className="space-y-4 mt-4">
+            {/* Opción principal: Descargar imagen */}
+            <div className="p-4 rounded-lg bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-200">
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-full bg-purple-100">
+                  <ImageIcon className="h-5 w-5 text-purple-600" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium text-sm">Imagen lista para Instagram</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Se descargará una imagen de 1080x1080 optimizada con el título, extracto y tu marca.
+                  </p>
+                </div>
+              </div>
+              
+              <Button 
+                onClick={generateInstagramImage}
+                disabled={isGeneratingImage}
+                className="w-full mt-3 bg-gradient-to-r from-purple-600 via-pink-500 to-orange-500 hover:opacity-90"
+              >
+                {isGeneratingImage ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Generando imagen...
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4 mr-2" />
+                    Descargar imagen para Instagram
+                  </>
+                )}
+              </Button>
+            </div>
 
-          <div className="mt-4 p-3 bg-muted/50 rounded-lg">
-            <p className="text-xs text-muted-foreground">
-              <strong>Tip para Instagram:</strong> El texto se ha copiado al portapapeles. 
-              Puedes pegarlo en tu historia o crear una publicación con la imagen del artículo.
-            </p>
+            {/* Pasos */}
+            <div className="text-xs text-muted-foreground space-y-2 p-3 bg-muted/50 rounded-lg">
+              <p className="font-medium text-foreground">¿Cómo subir a Instagram?</p>
+              <ol className="list-decimal list-inside space-y-1">
+                <li>Descarga la imagen</li>
+                <li>Abre Instagram</li>
+                <li>Crea un nuevo post o historia</li>
+                <li>Selecciona la imagen descargada</li>
+                <li>Pega el texto que se copió automáticamente</li>
+              </ol>
+            </div>
+
+            {/* Otras opciones */}
+            <div className="border-t pt-4">
+              <p className="text-xs text-muted-foreground mb-3">Otras formas de compartir:</p>
+              <div className="grid grid-cols-3 gap-2">
+                <Button 
+                  onClick={shareToTwitter}
+                  variant="outline"
+                  size="sm"
+                >
+                  <Twitter className="h-4 w-4 mr-1" />
+                  Twitter
+                </Button>
+                <Button 
+                  onClick={shareToWhatsApp}
+                  variant="outline"
+                  size="sm"
+                >
+                  <MessageCircle className="h-4 w-4 mr-1" />
+                  WhatsApp
+                </Button>
+                <Button 
+                  onClick={copyLink}
+                  variant="outline"
+                  size="sm"
+                >
+                  {copied ? (
+                    <>
+                      <Check className="h-4 w-4 mr-1" />
+                      Copiado
+                    </>
+                  ) : (
+                    <>
+                      <Link2 className="h-4 w-4 mr-1" />
+                      Copiar
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
@@ -504,7 +705,7 @@ function getPlaceholderArticles(): Article[] {
       id: '2',
       title: 'La importancia de la autoestima en las relaciones',
       slug: 'autoestima-relaciones',
-      content: 'La autoestima juega un papel fundamental en cómo nos relacionamos con los demás. Una autoestima saludable nos permite establecer límites adecuados, comunicarnos de forma efectiva y mantener relaciones equilibradas.\n\nCuando valoramos quiénes somos, no necesitamos la aprobación constante de otros, lo que nos permite ser auténticos en nuestras interacciones.',
+      content: 'La autoestima juega un papel fundamental en cómo nos relacionamos con los demás. Una autoestima saludable nos permite establecer límites adecuados, comunicarnos de forma efectiva y mantener relaciones equilibradas.',
       excerpt: 'Descubre cómo tu autoestima influye en tus relaciones interpersonales.',
       category: 'autoestima',
       tags: ['autoestima', 'relaciones'],
@@ -518,7 +719,7 @@ function getPlaceholderArticles(): Article[] {
       id: '3',
       title: 'Mindfulness para principiantes: Guía completa',
       slug: 'mindfulness-principiantes',
-      content: 'El mindfulness o atención plena es una práctica que nos ayuda a estar presentes en el momento actual, reduciendo el estrés y mejorando nuestro bienestar emocional.\n\nPara comenzar, puedes practicar solo 5 minutos al día. Siéntate cómodamente, cierra los ojos y enfócate en tu respiración. Cuando tu mente divague, suavemente trae tu atención de vuelta a la respiración.',
+      content: 'El mindfulness o atención plena es una práctica que nos ayuda a estar presentes en el momento actual, reduciendo el estrés y mejorando nuestro bienestar emocional.',
       excerpt: 'Una introducción detallada a las técnicas de mindfulness.',
       category: 'mindfulness',
       tags: ['mindfulness', 'meditación'],
