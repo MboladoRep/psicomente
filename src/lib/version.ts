@@ -1,9 +1,20 @@
 // Sistema de versiones de PsicoMente
 // Actualizar este archivo con cada nuevo deploy
 
-export const VERSION = '1.5.0';
+export const VERSION = '1.6.0';
 
 export const VERSION_HISTORY = [
+  {
+    version: '1.6.0',
+    date: '2026-02-26',
+    changes: [
+      'Añadidas imágenes generadas con IA para cada artículo',
+      'Botones de compartir en Instagram, Twitter y WhatsApp',
+      'Diálogo de compartir con opciones múltiples',
+      'Mejorada visualización de artículos con imágenes',
+      'Indicador de vistas en cada artículo',
+    ],
+  },
   {
     version: '1.5.0',
     date: '2026-02-26',
@@ -11,8 +22,6 @@ export const VERSION_HISTORY = [
       'Añadidos sonidos ambientales reales a la Zona Mindfulness',
       '4 nuevos sonidos: Océano, Lluvia, Bosque, Fogata',
       'Control de volumen para ejercicios de sonido',
-      'Sonidos generados con Web Audio API (sin dependencias externas)',
-      'Mejorada interfaz de ejercicios de meditación',
     ],
   },
   {
@@ -43,16 +52,6 @@ export const VERSION_HISTORY = [
       'Arreglado conteo de usuarios en panel admin',
       'Ingresos ahora en euros (€)',
       'Añadido sistema de versiones',
-    ],
-  },
-  {
-    version: '1.1.0',
-    date: '2026-02-25',
-    changes: [
-      'Mejoras en seguridad de APIs',
-      'Añadido historial de chat',
-      'Página de perfil de usuario',
-      'Panel de administración mejorado',
     ],
   },
   {
