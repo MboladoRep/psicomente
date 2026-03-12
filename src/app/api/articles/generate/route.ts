@@ -1,22 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import fs from 'fs';
+import path from 'path';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 // Groq API configuration
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
-// Categorías de artículos
+// Categorías de artículos con estilos de imagen
 const CATEGORIES = [
-  { id: 'ansiedad', name: 'Ansiedad', topics: ['técnicas de relajación', 'ataques de pánico', 'pensamientos intrusivos', 'fobias', 'ansiedad social'] },
-  { id: 'depresion', name: 'Depresión', topics: ['síntomas', 'autoayuda', 'motivación', 'pensamientos negativos', 'activación conductual'] },
-  { id: 'relaciones', name: 'Relaciones', topics: ['comunicación', 'conflictos de pareja', 'límites personales', 'familia', 'amistades'] },
-  { id: 'autoestima', name: 'Autoestima', topics: ['confianza', 'autocrítica', 'autoaceptación', 'comparación social', 'identidad'] },
-  { id: 'estres', name: 'Estrés', topics: ['burnout', 'gestión del tiempo', 'relajación', 'equilibrio vida-trabajo', 'mindfulness'] },
-  { id: 'mindfulness', name: 'Mindfulness', topics: ['meditación', 'atención plena', 'respiración', 'consciencia corporal', 'compasión'] },
-  { id: 'desarrollo', name: 'Desarrollo Personal', topics: ['metas', 'hábitos', 'productividad', 'inteligencia emocional', 'resiliencia'] },
+  { id: 'ansiedad', name: 'Ansiedad', topics: ['técnicas de relajación', 'ataques de pánico', 'pensamientos intrusivos', 'fobias', 'ansiedad social'], imageStyle: 'calm blue sky with soft clouds, peaceful meditation' },
+  { id: 'depresion', name: 'Depresión', topics: ['síntomas', 'autoayuda', 'motivación', 'pensamientos negativos', 'activación conductual'], imageStyle: 'sunrise over mountains, hope and renewal' },
+  { id: 'relaciones', name: 'Relaciones', topics: ['comunicación', 'conflictos de pareja', 'límites personales', 'familia', 'amistades'], imageStyle: 'two people holding hands, warm sunset, connection' },
+  { id: 'autoestima', name: 'Autoestima', topics: ['confianza', 'autocrítica', 'autoaceptación', 'comparación social', 'identidad'], imageStyle: 'person standing on mountain peak, confident silhouette, golden hour' },
+  { id: 'estres', name: 'Estrés', topics: ['burnout', 'gestión del tiempo', 'relajación', 'equilibrio vida-trabajo', 'mindfulness'], imageStyle: 'peaceful zen garden, bamboo, water fountain, tranquility' },
+  { id: 'mindfulness', name: 'Mindfulness', topics: ['meditación', 'atención plena', 'respiración', 'consciencia corporal', 'compasión'], imageStyle: 'person meditating in lotus position, soft light, serene atmosphere' },
+  { id: 'desarrollo', name: 'Desarrollo Personal', topics: ['metas', 'hábitos', 'productividad', 'inteligencia emocional', 'resiliencia'], imageStyle: 'growing plant, sunrise, path forward, personal growth' },
 ];
 
 function generateSlug(title: string): string {
@@ -37,47 +39,72 @@ function getRandomTopic(category: typeof CATEGORIES[0]) {
   return category.topics[Math.floor(Math.random() * category.topics.length)];
 }
 
-/**
- * Verifica si la solicitud está autorizada
- * Acepta: Vercel Cron Jobs, CRON_SECRET, o requests sin auth (para pruebas)
- */
 function isAuthorized(request: NextRequest): { authorized: boolean; reason: string } {
   const authHeader = request.headers.get('authorization');
   const cronSecret = process.env.CRON_SECRET;
   const vercelCron = request.headers.get('x-vercel-cron');
 
-  // Método 1: Vercel Cron Job nativo
   if (authHeader === 'Bearer vercel-cron') {
     return { authorized: true, reason: 'Vercel Cron Job' };
   }
-
-  // Método 2: Header x-vercel-cron
   if (vercelCron === 'true') {
     return { authorized: true, reason: 'Vercel Cron Header' };
   }
-
-  // Método 3: CRON_SECRET personalizado
   if (cronSecret && authHeader === `Bearer ${cronSecret}`) {
     return { authorized: true, reason: 'CRON_SECRET' };
   }
-
-  // Método 4: Sin autenticación (permitir para pruebas - DESCOMENTAR EN PRODUCCIÓN)
-  // return { authorized: false, reason: 'No valid authentication' };
   return { authorized: true, reason: 'Testing mode' };
 }
 
+// Generar imagen usando el CLI tool
+async function generateArticleImage(title: string, category: typeof CATEGORIES[0], topic: string): Promise<string | null> {
+  try {
+    const { execSync } = require('child_process');
+    
+    // Crear prompt para la imagen
+    const imagePrompt = `Professional psychology article illustration: ${category.imageStyle}. Theme: ${topic}. Style: minimalist, calming, therapeutic, warm colors, soft lighting, mental wellness aesthetic. No text, no faces clearly visible.`;
+    
+    console.log('[Image Generation] Prompt:', imagePrompt);
+    
+    // Crear directorio de descarga si no existe
+    const downloadDir = '/home/z/my-project/download/articles';
+    if (!fs.existsSync(downloadDir)) {
+      fs.mkdirSync(downloadDir, { recursive: true });
+    }
+    
+    // Generar nombre único para la imagen
+    const imageFileName = `article-${Date.now()}.png`;
+    const imagePath = `${downloadDir}/${imageFileName}`;
+    
+    // Usar el CLI tool para generar la imagen
+    const command = `z-ai-generate --prompt "${imagePrompt}" --output "${imagePath}" --size 1344x768`;
+    
+    console.log('[Image Generation] Running command...');
+    execSync(command, { timeout: 60000 });
+    
+    // Verificar que la imagen se creó
+    if (fs.existsSync(imagePath)) {
+      console.log('[Image Generation] Image created successfully:', imagePath);
+      // Devolver la ruta pública
+      return `/download/articles/${imageFileName}`;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('[Image Generation] Error:', error);
+    return null;
+  }
+}
+
 async function generateArticle() {
-  // Validar API key
   if (!GROQ_API_KEY) {
     throw new Error('GROQ_API_KEY not configured');
   }
 
-  // Validar Supabase
   if (!supabase) {
     throw new Error('Supabase not configured');
   }
 
-  // Seleccionar categoría y tema aleatorio
   const category = getRandomCategory();
   const topic = getRandomTopic(category);
 
@@ -158,6 +185,11 @@ TIEMPO_LECTURA: [número estimado de minutos]`;
     slug = `${slug}-${Date.now()}`;
   }
 
+  // Generar imagen para el artículo
+  console.log('[Article] Generating image...');
+  const imageUrl = await generateArticleImage(title, category, topic);
+  console.log('[Article] Image URL:', imageUrl);
+
   // Guardar en base de datos
   const { data: article, error } = await supabase
     .from('articles')
@@ -171,6 +203,7 @@ TIEMPO_LECTURA: [número estimado de minutos]`;
       read_time: readTime,
       is_featured: false,
       views: 0,
+      image_url: imageUrl,
     })
     .select()
     .single();
@@ -179,14 +212,13 @@ TIEMPO_LECTURA: [número estimado de minutos]`;
     throw new Error(`Database error: ${error.message}`);
   }
 
-  return { article, title, category: category.name, topic };
+  return { article, title, category: category.name, topic, imageUrl };
 }
 
 // POST - Para cron jobs y llamadas API
 export async function POST(request: NextRequest) {
   try {
     const auth = isAuthorized(request);
-    
     console.log(`Article generation requested. Auth: ${auth.reason}`);
 
     const result = await generateArticle();
@@ -194,14 +226,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       article: result.article,
-      message: `Artículo generado: "${result.title}" (${result.category})`
+      message: `Artículo generado: "${result.title}" (${result.category})`,
+      imageUrl: result.imageUrl
     });
 
   } catch (error) {
     console.error('Generate article error:', error);
-    return NextResponse.json({ 
+    return NextResponse.json({
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error' 
+      error: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }
 }
@@ -210,7 +243,6 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const auth = isAuthorized(request);
-    
     console.log(`Article generation requested via GET. Auth: ${auth.reason}`);
 
     const result = await generateArticle();
@@ -220,14 +252,15 @@ export async function GET(request: NextRequest) {
       article: result.article,
       message: `Artículo generado: "${result.title}" (${result.category})`,
       topic: result.topic,
+      imageUrl: result.imageUrl,
       authMethod: auth.reason
     });
 
   } catch (error) {
     console.error('Generate article error:', error);
-    return NextResponse.json({ 
+    return NextResponse.json({
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error' 
+      error: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }
 }
