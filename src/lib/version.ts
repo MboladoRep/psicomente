@@ -1,9 +1,20 @@
 // Sistema de versiones de PsicoMente
 // Actualizar este archivo con cada nuevo deploy
 
-export const VERSION = '1.4.0';
+export const VERSION = '1.5.0';
 
 export const VERSION_HISTORY = [
+  {
+    version: '1.5.0',
+    date: '2026-02-26',
+    changes: [
+      'Añadidos sonidos ambientales reales a la Zona Mindfulness',
+      '4 nuevos sonidos: Océano, Lluvia, Bosque, Fogata',
+      'Control de volumen para ejercicios de sonido',
+      'Sonidos generados con Web Audio API (sin dependencias externas)',
+      'Mejorada interfaz de ejercicios de meditación',
+    ],
+  },
   {
     version: '1.4.0',
     date: '2026-02-26',
@@ -11,7 +22,6 @@ export const VERSION_HISTORY = [
       'Eliminadas estadísticas falsas del Hero',
       'Añadidas características reales del servicio',
       'Contenido honesto: 24/7, Privado, Respuesta inmediata',
-      'Mejorada honestidad y transparencia de la web',
     ],
   },
   {
@@ -21,7 +31,6 @@ export const VERSION_HISTORY = [
       'Corregida detección de estado Premium desde la base de datos',
       'Eliminado botón "Actualizar a Premium" del menú',
       'El sistema detecta automáticamente si el usuario es Premium',
-      'Mejorado manejo de errores en la API de usuarios',
     ],
   },
   {
