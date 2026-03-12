@@ -8,8 +8,7 @@ import {
   Twitter, 
   Instagram, 
   Linkedin, 
-  Sparkles,
-  Heart
+  Sparkles
 } from 'lucide-react';
 import VersionBadge from '@/components/VersionBadge';
 
@@ -51,12 +50,10 @@ export default function Footer() {
           {/* Brand */}
           <div className="md:col-span-1">
             <Link href="/" className="flex items-center gap-2 mb-4">
-              <div className="p-2 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/5">
-                <Brain className="h-6 w-6 text-purple-600" />
+              <div className="p-2 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5">
+                <Brain className="h-6 w-6 text-primary" />
               </div>
-              <span className="text-xl font-bold bg-gradient-to-r from-purple-600 to-pink-500 bg-clip-text text-transparent">
-                PsicoMente
-              </span>
+              <span className="text-xl font-bold">PsicoMente</span>
             </Link>
             <p className="text-sm text-muted-foreground mb-4">
               Tu plataforma de bienestar psicológico. Accede a herramientas profesionales 
@@ -99,16 +96,15 @@ export default function Footer() {
 
         {/* Bottom */}
         <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-          <p className="text-sm text-muted-foreground text-center md:text-left flex items-center gap-1">
-            © {new Date().getFullYear()} PsicoMente. Hecho con{' '}
-            <Heart className="h-4 w-4 text-red-500 fill-red-500" /> para tu bienestar
+          <p className="text-sm text-muted-foreground text-center md:text-left">
+            2024 PsicoMente. Todos los derechos reservados.
           </p>
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <Sparkles className="h-4 w-4 text-purple-500" />
-              Cuidando tu mente
-            </span>
             <VersionBadge />
+            <span className="flex items-center gap-1">
+              <Sparkles className="h-4 w-4 text-primary" />
+              Hecho con cuidado para tu bienestar
+            </span>
           </div>
         </div>
 
