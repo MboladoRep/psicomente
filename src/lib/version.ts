@@ -1,9 +1,8 @@
 /**
  * Sistema de versiones de PsicoMente
- * Permite rastrear cambios y mejoras implementadas
  */
 
-export const VERSION = '1.7.0';
+export const VERSION = '1.7.1';
 
 export interface VersionEntry {
   version: string;
@@ -12,6 +11,18 @@ export interface VersionEntry {
 }
 
 export const VERSION_HISTORY: VersionEntry[] = [
+  {
+    version: '1.7.1',
+    date: '2025-02-26',
+    changes: [
+      'Compartir artículos optimizado para móviles',
+      'Web Share API nativo para Instagram en móvil',
+      'Sheet bottom para compartir en móvil',
+      'Soporte especial para iOS (mantener pulsado)',
+      'Botón compartir visible siempre en móvil',
+      'Detección automática de dispositivo',
+    ],
+  },
   {
     version: '1.7.0',
     date: '2025-02-26',
@@ -94,23 +105,14 @@ export const VERSION_HISTORY: VersionEntry[] = [
   },
 ];
 
-/**
- * Obtiene la versión actual
- */
 export function getCurrentVersion(): string {
   return VERSION;
 }
 
-/**
- * Obtiene el historial completo de versiones
- */
 export function getVersionHistory(): VersionEntry[] {
   return VERSION_HISTORY;
 }
 
-/**
- * Obtiene los cambios de la versión actual
- */
 export function getCurrentChanges(): string[] {
   return VERSION_HISTORY[0]?.changes || [];
 }
