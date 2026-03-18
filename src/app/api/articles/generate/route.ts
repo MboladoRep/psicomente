@@ -1,25 +1,77 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
-import fs from 'fs';
-import path from 'path';
+import ZAI from 'z-ai-web-dev-sdk';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 120;
+export const maxDuration = 60;
 
 // Groq API configuration
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
-// Categorías de artículos con estilos de imagen
+// Categorías de artículos
 const CATEGORIES = [
-  { id: 'ansiedad', name: 'Ansiedad', topics: ['técnicas de relajación', 'ataques de pánico', 'pensamientos intrusivos', 'fobias', 'ansiedad social'], imageStyle: 'calm blue sky with soft clouds, peaceful meditation' },
-  { id: 'depresion', name: 'Depresión', topics: ['síntomas', 'autoayuda', 'motivación', 'pensamientos negativos', 'activación conductual'], imageStyle: 'sunrise over mountains, hope and renewal' },
-  { id: 'relaciones', name: 'Relaciones', topics: ['comunicación', 'conflictos de pareja', 'límites personales', 'familia', 'amistades'], imageStyle: 'two people holding hands, warm sunset, connection' },
-  { id: 'autoestima', name: 'Autoestima', topics: ['confianza', 'autocrítica', 'autoaceptación', 'comparación social', 'identidad'], imageStyle: 'person standing on mountain peak, confident silhouette, golden hour' },
-  { id: 'estres', name: 'Estrés', topics: ['burnout', 'gestión del tiempo', 'relajación', 'equilibrio vida-trabajo', 'mindfulness'], imageStyle: 'peaceful zen garden, bamboo, water fountain, tranquility' },
-  { id: 'mindfulness', name: 'Mindfulness', topics: ['meditación', 'atención plena', 'respiración', 'consciencia corporal', 'compasión'], imageStyle: 'person meditating in lotus position, soft light, serene atmosphere' },
-  { id: 'desarrollo', name: 'Desarrollo Personal', topics: ['metas', 'hábitos', 'productividad', 'inteligencia emocional', 'resiliencia'], imageStyle: 'growing plant, sunrise, path forward, personal growth' },
+  { id: 'ansiedad', name: 'Ansiedad', topics: ['técnicas de relajación', 'ataques de pánico', 'pensamientos intrusivos', 'fobias', 'ansiedad social'] },
+  { id: 'depresion', name: 'Depresión', topics: ['síntomas', 'autoayuda', 'motivación', 'pensamientos negativos', 'activación conductual'] },
+  { id: 'relaciones', name: 'Relaciones', topics: ['comunicación', 'conflictos de pareja', 'límites personales', 'familia', 'amistades'] },
+  { id: 'autoestima', name: 'Autoestima', topics: ['confianza', 'autocrítica', 'autoaceptación', 'comparación social', 'identidad'] },
+  { id: 'estres', name: 'Estrés', topics: ['burnout', 'gestión del tiempo', 'relajación', 'equilibrio vida-trabajo', 'mindfulness'] },
+  { id: 'mindfulness', name: 'Mindfulness', topics: ['meditación', 'atención plena', 'respiración', 'consciencia corporal', 'compasión'] },
+  { id: 'desarrollo', name: 'Desarrollo Personal', topics: ['metas', 'hábitos', 'productividad', 'inteligencia emocional', 'resiliencia'] },
 ];
+
+// Prompts de imagen únicos por categoría
+const IMAGE_PROMPTS: Record<string, string[]> = {
+  ansiedad: [
+    'calm ocean waves at sunset, peaceful meditation, serenity, mindfulness, soft colors, therapeutic environment',
+    'person meditating in nature, zen garden, tranquility, mental peace, soft natural lighting',
+    'gentle mountain stream, forest path, peaceful solitude, natural therapy, calming atmosphere',
+    'soft clouds at dawn, peaceful sky, hope and renewal, gentle morning light',
+    'quiet lake reflection, stillness, inner peace, meditation spot, natural serenity',
+  ],
+  depresion: [
+    'sunrise over mountains, hope, new beginning, warm light breaking through clouds',
+    'single flower blooming in spring, resilience, growth, natural beauty, soft focus',
+    'path through misty forest, journey of healing, gentle light ahead, peaceful walk',
+    'rainbow after storm, hope emerging, natural wonder, beautiful sky, optimism',
+    'warm candlelight in dark room, hope in darkness, gentle glow, comfort and peace',
+  ],
+  relaciones: [
+    'two hands holding, human connection, warmth, trust, soft natural light',
+    'people silhouettes watching sunset together, companionship, shared moment, beautiful horizon',
+    'family walking on beach, togetherness, bonding, golden hour, peaceful scene',
+    'friends around campfire, connection, sharing stories, warm atmosphere, community',
+    'bridge connecting two places, symbol of connection, peaceful landscape, gentle stream below',
+  ],
+  autoestima: [
+    'person standing on mountain peak at sunrise, achievement, self-confidence, magnificent view',
+    'mirror reflecting beautiful nature, self-reflection, inner beauty, peaceful surroundings',
+    'butterfly emerging from cocoon, transformation, growth, new beginnings, delicate beauty',
+    'person looking at reflection in calm water, self-discovery, peaceful lake, meditation',
+    'flower opening to sun, self-expression, blooming, natural growth, gentle light',
+  ],
+  estres: [
+    'calm zen garden with rake patterns, mindfulness, peaceful meditation space, japanese aesthetic',
+    'person relaxing in hammock, rest, peaceful afternoon, gentle breeze, outdoor tranquility',
+    'peaceful spa atmosphere, candles and stones, relaxation, wellness, soft lighting',
+    'gentle rain on window, cozy atmosphere, peaceful rest, indoor comfort, relaxation',
+    'tea cup with steam rising, mindful moment, peaceful break, warm atmosphere, self-care',
+  ],
+  mindfulness: [
+    'lotus flower floating on calm water, meditation, spiritual awakening, peaceful pond',
+    'person in lotus position at sunrise, meditation practice, inner peace, beautiful nature',
+    'singing bowl with mallet, sound healing, mindfulness practice, peaceful setting',
+    'yoga mat in nature, mindful practice, outdoor meditation, peaceful morning light',
+    'mala beads on natural surface, meditation tools, spiritual practice, peaceful textures',
+  ],
+  desarrollo: [
+    'path winding up mountain, personal journey, growth, achievement, inspiring landscape',
+    'compass on old map, direction, purpose, self-discovery, adventure awaits',
+    'seedling growing from soil, potential, growth mindset, new beginnings, nurturing',
+    'open book with light rays, knowledge, learning, wisdom, enlightenment',
+    'lighthouse on cliff, guidance, direction, purpose, coastal beauty, beacon of hope',
+  ],
+};
 
 function generateSlug(title: string): string {
   return title
@@ -39,6 +91,14 @@ function getRandomTopic(category: typeof CATEGORIES[0]) {
   return category.topics[Math.floor(Math.random() * category.topics.length)];
 }
 
+function getRandomImagePrompt(categoryId: string): string {
+  const prompts = IMAGE_PROMPTS[categoryId] || IMAGE_PROMPTS.desarrollo;
+  return prompts[Math.floor(Math.random() * prompts.length)];
+}
+
+/**
+ * Verifica si la solicitud está autorizada
+ */
 function isAuthorized(request: NextRequest): { authorized: boolean; reason: string } {
   const authHeader = request.headers.get('authorization');
   const cronSecret = process.env.CRON_SECRET;
@@ -47,64 +107,82 @@ function isAuthorized(request: NextRequest): { authorized: boolean; reason: stri
   if (authHeader === 'Bearer vercel-cron') {
     return { authorized: true, reason: 'Vercel Cron Job' };
   }
+
   if (vercelCron === 'true') {
     return { authorized: true, reason: 'Vercel Cron Header' };
   }
+
   if (cronSecret && authHeader === `Bearer ${cronSecret}`) {
     return { authorized: true, reason: 'CRON_SECRET' };
   }
+
   return { authorized: true, reason: 'Testing mode' };
 }
 
-// Generar imagen usando el CLI tool
-async function generateArticleImage(title: string, category: typeof CATEGORIES[0], topic: string): Promise<string | null> {
+/**
+ * Genera una imagen única para el artículo usando IA
+ */
+async function generateArticleImage(title: string, categoryId: string, topic: string): Promise<string | null> {
   try {
-    const { execSync } = require('child_process');
-    
-    // Crear prompt para la imagen
-    const imagePrompt = `Professional psychology article illustration: ${category.imageStyle}. Theme: ${topic}. Style: minimalist, calming, therapeutic, warm colors, soft lighting, mental wellness aesthetic. No text, no faces clearly visible.`;
-    
-    console.log('[Image Generation] Prompt:', imagePrompt);
-    
-    // Crear directorio de descarga si no existe
-    const downloadDir = '/home/z/my-project/download/articles';
-    if (!fs.existsSync(downloadDir)) {
-      fs.mkdirSync(downloadDir, { recursive: true });
+    const zai = await ZAI.create();
+
+    // Crear un prompt único combinando el tema y elementos visuales apropiados
+    const basePrompt = getRandomImagePrompt(categoryId);
+    const imagePrompt = `${basePrompt}, psychology article about ${topic}, calming therapeutic style, soft pastel colors, professional mental health aesthetic, high quality, 4k`;
+
+    console.log(`Generating image with prompt: ${imagePrompt}`);
+
+    const response = await zai.images.generations.create({
+      prompt: imagePrompt,
+      size: '1024x1024',
+    });
+
+    if (response.data && response.data[0]?.base64) {
+      // Guardar la imagen en Supabase Storage
+      const base64Data = response.data[0].base64;
+      const buffer = Buffer.from(base64Data, 'base64');
+      const filename = `articles/${categoryId}-${Date.now()}.png`;
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('images')
+        .upload(filename, buffer, {
+          contentType: 'image/png',
+          upsert: true,
+        });
+
+      if (uploadError) {
+        console.error('Error uploading image:', uploadError);
+        // Si falla la subida, devolver null y usar imagen por defecto
+        return null;
+      }
+
+      // Obtener URL pública
+      const { data: urlData } = supabase.storage
+        .from('images')
+        .getPublicUrl(filename);
+
+      return urlData.publicUrl;
     }
-    
-    // Generar nombre único para la imagen
-    const imageFileName = `article-${Date.now()}.png`;
-    const imagePath = `${downloadDir}/${imageFileName}`;
-    
-    // Usar el CLI tool para generar la imagen
-    const command = `z-ai-generate --prompt "${imagePrompt}" --output "${imagePath}" --size 1344x768`;
-    
-    console.log('[Image Generation] Running command...');
-    execSync(command, { timeout: 60000 });
-    
-    // Verificar que la imagen se creó
-    if (fs.existsSync(imagePath)) {
-      console.log('[Image Generation] Image created successfully:', imagePath);
-      // Devolver la ruta pública
-      return `/download/articles/${imageFileName}`;
-    }
-    
+
     return null;
   } catch (error) {
-    console.error('[Image Generation] Error:', error);
+    console.error('Error generating image:', error);
     return null;
   }
 }
 
 async function generateArticle() {
+  // Validar API key
   if (!GROQ_API_KEY) {
     throw new Error('GROQ_API_KEY not configured');
   }
 
+  // Validar Supabase
   if (!supabase) {
     throw new Error('Supabase not configured');
   }
 
+  // Seleccionar categoría y tema aleatorio
   const category = getRandomCategory();
   const topic = getRandomTopic(category);
 
@@ -185,10 +263,9 @@ TIEMPO_LECTURA: [número estimado de minutos]`;
     slug = `${slug}-${Date.now()}`;
   }
 
-  // Generar imagen para el artículo
-  console.log('[Article] Generating image...');
-  const imageUrl = await generateArticleImage(title, category, topic);
-  console.log('[Article] Image URL:', imageUrl);
+  // Generar imagen única para el artículo
+  console.log('Generating unique image for article...');
+  const imageUrl = await generateArticleImage(title, category.id, topic);
 
   // Guardar en base de datos
   const { data: article, error } = await supabase
@@ -203,7 +280,7 @@ TIEMPO_LECTURA: [número estimado de minutos]`;
       read_time: readTime,
       is_featured: false,
       views: 0,
-      image_url: imageUrl,
+      image_url: imageUrl, // Guardar la URL de la imagen generada
     })
     .select()
     .single();
@@ -219,6 +296,7 @@ TIEMPO_LECTURA: [número estimado de minutos]`;
 export async function POST(request: NextRequest) {
   try {
     const auth = isAuthorized(request);
+
     console.log(`Article generation requested. Auth: ${auth.reason}`);
 
     const result = await generateArticle();
@@ -227,7 +305,7 @@ export async function POST(request: NextRequest) {
       success: true,
       article: result.article,
       message: `Artículo generado: "${result.title}" (${result.category})`,
-      imageUrl: result.imageUrl
+      imageGenerated: !!result.imageUrl,
     });
 
   } catch (error) {
@@ -243,6 +321,7 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const auth = isAuthorized(request);
+
     console.log(`Article generation requested via GET. Auth: ${auth.reason}`);
 
     const result = await generateArticle();
@@ -252,8 +331,8 @@ export async function GET(request: NextRequest) {
       article: result.article,
       message: `Artículo generado: "${result.title}" (${result.category})`,
       topic: result.topic,
-      imageUrl: result.imageUrl,
-      authMethod: auth.reason
+      authMethod: auth.reason,
+      imageGenerated: !!result.imageUrl,
     });
 
   } catch (error) {
