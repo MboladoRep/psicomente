@@ -110,20 +110,34 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user is premium (for limiting conversations)
-    const { data: user } = await supabase
+    const { data: dbUser, error: userError } = await supabase
       .from('users')
       .select('ispremium')
       .eq('email', email)
       .single();
 
-    const isPremium = user?.ispremium ?? false;
+    // Log para debug
+    console.log('[Conversations API] User lookup:', { 
+      email, 
+      dbUser, 
+      userError,
+      ispremium: dbUser?.ispremium,
+      ispremiumType: typeof dbUser?.ispremium
+    });
+
+    // Verificar premium con comparación estricta - SOLO true booleano cuenta
+    const isPremium = dbUser?.ispremium === true;
+
+    console.log('[Conversations API] Is premium:', isPremium);
 
     // If not premium, check conversation limit
     if (!isPremium) {
-      const { count } = await supabase
+      const { count, error: countError } = await supabase
         .from('chat_conversations')
         .select('*', { count: 'exact', head: true })
         .eq('user_email', email);
+
+      console.log('[Conversations API] Conversation count:', { count, countError });
 
       // Free users can only have 3 conversations
       if (count && count >= 3) {
