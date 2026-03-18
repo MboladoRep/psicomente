@@ -1,8 +1,9 @@
 /**
  * Sistema de versiones de PsicoMente
+ * Permite rastrear cambios y mejoras implementadas
  */
 
-export const VERSION = '1.7.5';
+export const VERSION = '1.7.6';
 
 export interface VersionEntry {
   version: string;
@@ -11,8 +12,17 @@ export interface VersionEntry {
 }
 
 export const VERSION_HISTORY: VersionEntry[] = [
-
-    {
+  {
+    version: '1.7.6',
+    date: '2025-02-26',
+    changes: [
+      'Página de detalle de artículos (/articulos/[slug])',
+      'Enlaces de WhatsApp ahora funcionan correctamente',
+      'Imágenes únicas generadas por IA para cada artículo',
+      'Diversidad visual en artículos del blog',
+    ],
+  },
+  {
     version: '1.7.5',
     date: '2025-02-26',
     changes: [
@@ -22,13 +32,15 @@ export const VERSION_HISTORY: VersionEntry[] = [
       'Indicador de conversaciones guardadas',
     ],
   },
-    {
-    version: '1.7.2',
+  {
+    version: '1.7.4',
     date: '2025-02-26',
     changes: [
-      'Corregido guardado de chats para usuarios Premium',
-      'Verificación estricta de estado premium (=== true)',
-      'Añadido logging para debug en API de conversaciones',
+      'Botón de guardar movido abajo del chat (más visible)',
+      'Campo de texto se expande automáticamente al escribir',
+      'Mejor experiencia en móvil para mensajes largos',
+      'Feedback visual al guardar (check verde)',
+      'Añadido hint de teclado (Enter/Shift+Enter)',
     ],
   },
   {
@@ -125,14 +137,23 @@ export const VERSION_HISTORY: VersionEntry[] = [
   },
 ];
 
+/**
+ * Obtiene la versión actual
+ */
 export function getCurrentVersion(): string {
   return VERSION;
 }
 
+/**
+ * Obtiene el historial completo de versiones
+ */
 export function getVersionHistory(): VersionEntry[] {
   return VERSION_HISTORY;
 }
 
+/**
+ * Obtiene los cambios de la versión actual
+ */
 export function getCurrentChanges(): string[] {
   return VERSION_HISTORY[0]?.changes || [];
 }
