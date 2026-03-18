@@ -2,7 +2,7 @@
  * Sistema de versiones de PsicoMente
  */
 
-export const VERSION = '1.7.2';
+export const VERSION = '1.7.5';
 
 export interface VersionEntry {
   version: string;
@@ -12,6 +12,16 @@ export interface VersionEntry {
 
 export const VERSION_HISTORY: VersionEntry[] = [
 
+    {
+    version: '1.7.5',
+    date: '2025-02-26',
+    changes: [
+      'Mejoras en chat: historial lateral completo',
+      'Eliminar conversaciones guardadas',
+      'Límite de 3 conversaciones para usuarios free',
+      'Indicador de conversaciones guardadas',
+    ],
+  },
     {
     version: '1.7.2',
     date: '2025-02-26',
