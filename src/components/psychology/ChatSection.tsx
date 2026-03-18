@@ -3,9 +3,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Textarea } from '@/components/ui/textarea';
 import {
   MessageCircle,
   Send,
@@ -15,13 +15,13 @@ import {
   Lock,
   Sparkles,
   AlertCircle,
-  History,
-  Plus,
-  Trash2,
-  Save,
   ChevronLeft,
   ChevronRight,
-  Crown
+  Crown,
+  Save,
+  Check,
+  Plus,
+  Trash2
 } from 'lucide-react';
 import { useUser } from '@/hooks/useUser';
 import { ChatMessage, ChatCategory } from '@/types';
@@ -53,6 +53,7 @@ export default function ChatSection() {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<ChatCategory>('general');
   const scrollRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Conversation history state
   const [showHistory, setShowHistory] = useState(false);
@@ -60,6 +61,7 @@ export default function ChatSection() {
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [savingConversation, setSavingConversation] = useState(false);
+  const [savedSuccessfully, setSavedSuccessfully] = useState(false);
 
   // Load conversations on mount if user is logged in
   useEffect(() => {
@@ -73,6 +75,15 @@ export default function ChatSection() {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  // Auto-resize textarea
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      const newHeight = Math.min(textareaRef.current.scrollHeight, 200);
+      textareaRef.current.style.height = `${newHeight}px`;
+    }
+  }, [input]);
 
   const loadConversations = async () => {
     if (!user?.email) return;
@@ -124,15 +135,14 @@ export default function ChatSection() {
     if (!user?.email || messages.length === 0) return;
 
     setSavingConversation(true);
+    setSavedSuccessfully(false);
     try {
-      // Generate title from first user message
       const firstUserMessage = messages.find(m => m.role === 'user');
       const title = firstUserMessage
         ? firstUserMessage.content.substring(0, 50) + (firstUserMessage.content.length > 50 ? '...' : '')
         : 'Nueva conversación';
 
       if (currentConversationId) {
-        // Update existing conversation
         const response = await fetch('/api/conversations', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
@@ -150,8 +160,10 @@ export default function ChatSection() {
 
         const data = await response.json();
         if (data.success) {
+          setSavedSuccessfully(true);
+          setTimeout(() => setSavedSuccessfully(false), 2000);
           toast({
-            title: 'Conversación actualizada',
+            title: '✓ Conversación guardada',
             description: 'Tu conversación se ha guardado correctamente',
           });
           loadConversations();
@@ -163,7 +175,6 @@ export default function ChatSection() {
           });
         }
       } else {
-        // Create new conversation
         const response = await fetch('/api/conversations', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -182,8 +193,10 @@ export default function ChatSection() {
         const data = await response.json();
         if (data.success) {
           setCurrentConversationId(data.conversation.id);
+          setSavedSuccessfully(true);
+          setTimeout(() => setSavedSuccessfully(false), 2000);
           toast({
-            title: 'Conversación guardada',
+            title: '✓ Conversación guardada',
             description: 'Tu conversación se ha guardado correctamente',
           });
           loadConversations();
@@ -241,6 +254,7 @@ export default function ChatSection() {
     setMessages([]);
     setCurrentConversationId(null);
     setSelectedCategory('general');
+    setSavedSuccessfully(false);
   };
 
   const sendMessage = async () => {
@@ -265,6 +279,11 @@ export default function ChatSection() {
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
+
+    // Reset textarea height
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+    }
 
     try {
       const response = await fetch('/api/chat', {
@@ -295,7 +314,7 @@ export default function ChatSection() {
         if (data.errorCode === 'MISSING_API_KEY' || data.errorCode === 'AUTH_ERROR') {
           toast({
             title: 'Error de configuración',
-            description: 'El servicio de chat no está disponible temporalmente. Por favor, contacta al soporte.',
+            description: 'El servicio de chat no está disponible temporalmente.',
             variant: 'destructive',
           });
         } else {
@@ -315,6 +334,13 @@ export default function ChatSection() {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
     }
   };
 
@@ -446,21 +472,6 @@ export default function ChatSection() {
                     Asistente Psicológico
                   </CardTitle>
                   <div className="flex items-center gap-2">
-                    {/* Save button - only when logged in and has messages */}
-                    {user && messages.length > 0 && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={saveConversation}
-                        disabled={savingConversation}
-                      >
-                        {savingConversation ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Save className="h-4 w-4" />
-                        )}
-                      </Button>
-                    )}
                     {!user?.isPremium && (
                       <Badge variant={remainingChats > 0 ? 'secondary' : 'destructive'}>
                         {remainingChats === Infinity ? (
@@ -569,8 +580,46 @@ export default function ChatSection() {
                   )}
                 </ScrollArea>
 
-                {/* Input Area */}
-                <div className="border-t p-4">
+                {/* Input Area - Con botón de guardar */}
+                <div className="border-t p-4 space-y-3">
+                  {/* Botón de guardar - Visible cuando hay mensajes */}
+                  {user && messages.length > 0 && (
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant={savedSuccessfully ? "default" : "outline"}
+                          size="sm"
+                          onClick={saveConversation}
+                          disabled={savingConversation}
+                          className={`gap-2 ${savedSuccessfully ? 'bg-green-600 hover:bg-green-700' : ''}`}
+                        >
+                          {savingConversation ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Guardando...
+                            </>
+                          ) : savedSuccessfully ? (
+                            <>
+                              <Check className="h-4 w-4" />
+                              Guardado
+                            </>
+                          ) : (
+                            <>
+                              <Save className="h-4 w-4" />
+                              Guardar conversación
+                            </>
+                          )}
+                        </Button>
+                        {currentConversationId && (
+                          <span className="text-xs text-muted-foreground">
+                            {user.isPremium ? '✓ Sin límite' : `${conversations.length}/3 guardadas`}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Campo de texto y botón enviar */}
                   {!canUseChat && !user?.isPremium ? (
                     <div className="flex items-center justify-center gap-2 py-4 text-muted-foreground">
                       <Lock className="h-4 w-4" />
@@ -580,25 +629,32 @@ export default function ChatSection() {
                       </Button>
                     </div>
                   ) : (
-                    <form
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        sendMessage();
-                      }}
-                      className="flex gap-2"
-                    >
-                      <Input
-                        placeholder="Escribe tu consulta..."
+                    <div className="flex gap-2 items-end">
+                      <Textarea
+                        ref={textareaRef}
+                        placeholder="Escribe tu consulta... (Shift+Enter para nueva línea)"
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
+                        onKeyDown={handleKeyDown}
                         disabled={isLoading}
-                        className="flex-1"
+                        className="flex-1 min-h-[44px] max-h-[200px] resize-none"
+                        rows={1}
                       />
-                      <Button type="submit" disabled={isLoading || !input.trim()}>
+                      <Button 
+                        type="submit" 
+                        disabled={isLoading || !input.trim()} 
+                        className="h-11 px-4"
+                        onClick={sendMessage}
+                      >
                         {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                       </Button>
-                    </form>
+                    </div>
                   )}
+                  
+                  {/* Hint para el usuario */}
+                  <p className="text-xs text-muted-foreground text-center">
+                    Pulsa Enter para enviar • Shift+Enter para nueva línea
+                  </p>
                 </div>
               </CardContent>
             </Card>
