@@ -11,34 +11,35 @@ import {
   Sparkles
 } from 'lucide-react';
 import VersionBadge from '@/components/VersionBadge';
+import { useTranslation } from '@/contexts/I18nContext';
 
 export default function Footer() {
+  const { t } = useTranslation();
+
   const footerLinks = [
     {
-      title: 'Recursos',
+      title: t('footer.links'),
       links: [
-        { label: 'Chat Psicológico', href: '#chat' },
-        { label: 'Artículos', href: '#articulos' },
-        { label: 'Tests', href: '#tests' },
-        { label: 'Mindfulness', href: '#mindfulness' },
+        { label: t('nav.chat'), href: '#chat' },
+        { label: t('nav.articles'), href: '#articulos' },
+        { label: t('nav.tests'), href: '#tests' },
+        { label: t('nav.mindfulness'), href: '#mindfulness' },
       ],
     },
     {
-      title: 'Empresa',
+      title: 'PsicoMente',
       links: [
-        { label: 'Sobre Nosotros', href: '#' },
-        { label: 'Blog', href: '#' },
-        { label: 'Carreras', href: '#' },
-        { label: 'Contacto', href: '#' },
+        { label: t('hero.title'), href: '#inicio' },
+        { label: t('pricing.title'), href: '#precios' },
+        { label: t('footer.contact'), href: 'mailto:soporte@psicomente.com' },
       ],
     },
     {
-      title: 'Legal',
+      title: t('footer.legal'),
       links: [
-        { label: 'Términos de Servicio', href: '/terminos' },
-        { label: 'Política de Privacidad', href: '/privacidad' },
+        { label: t('footer.terms'), href: '/terminos' },
+        { label: t('footer.privacy'), href: '/privacidad' },
         { label: 'Cookies', href: '/privacidad#cookies' },
-        { label: 'Contacto', href: 'mailto:soporte@psicomente.com' },
       ],
     },
   ];
@@ -56,8 +57,7 @@ export default function Footer() {
               <span className="text-xl font-bold">PsicoMente</span>
             </Link>
             <p className="text-sm text-muted-foreground mb-4">
-              Tu plataforma de bienestar psicológico. Accede a herramientas profesionales 
-              para tu crecimiento personal y salud mental.
+              {t('footer.description')}
             </p>
             <div className="flex gap-3">
               <Button variant="ghost" size="icon" className="h-9 w-9">
@@ -97,13 +97,13 @@ export default function Footer() {
         {/* Bottom */}
         <div className="flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-sm text-muted-foreground text-center md:text-left">
-            2024 PsicoMente. Todos los derechos reservados.
+            2024 PsicoMente. {t('footer.rights')}.
           </p>
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
             <VersionBadge />
             <span className="flex items-center gap-1">
               <Sparkles className="h-4 w-4 text-primary" />
-              Hecho con cuidado para tu bienestar
+              {t('footer.description').split('.')[0]}
             </span>
           </div>
         </div>
@@ -114,7 +114,7 @@ export default function Footer() {
             <strong>Aviso importante:</strong> PsicoMente es una herramienta de apoyo y educación psicológica. 
             No sustituye el diagnóstico, tratamiento o consejo profesional de salud mental. 
             Si estás experimentando una crisis o pensamientos de autolesión, busca ayuda inmediata 
-            contactando a los servicios de emergencia de tu localidad o yendo al centro de salud más cercano.
+            contactando a los servicios de emergencia de tu localidad.
           </p>
         </div>
       </div>
