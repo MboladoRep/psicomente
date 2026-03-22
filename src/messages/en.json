@@ -1,0 +1,183 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "close": "Close",
+    "share": "Share",
+    "copy": "Copy",
+    "copied": "Copied",
+    "language": "Language",
+    "spanish": "Spanish",
+    "english": "English"
+  },
+  "nav": {
+    "home": "Home",
+    "chat": "Chat",
+    "articles": "Articles",
+    "tests": "Tests",
+    "diary": "Diary",
+    "mindfulness": "Mindfulness",
+    "profile": "My Profile",
+    "logout": "Log out",
+    "login": "Log in",
+    "signup": "Sign up",
+    "premium": "Premium"
+  },
+  "hero": {
+    "title": "Your mental wellbeing matters",
+    "subtitle": "PsicoMente is your emotional wellbeing companion. Access professional psychological support, self-awareness tools, and personalized resources for your personal growth.",
+    "cta": "Get started",
+    "ctaPremium": "Unlock Premium"
+  },
+  "chat": {
+    "title": "Psychological Chat",
+    "subtitle": "Chat with our AI specialized in emotional wellbeing",
+    "placeholder": "Type your message here...",
+    "send": "Send",
+    "thinking": "Thinking...",
+    "saveConversation": "Save conversation",
+    "savedConversations": "Saved conversations",
+    "noConversations": "No saved conversations",
+    "newChat": "New conversation",
+    "premiumRequired": "This feature requires Premium",
+    "limitReached": "Conversation limit reached",
+    "upgradePremium": "Upgrade to Premium for unlimited conversations"
+  },
+  "articles": {
+    "title": "Articles & Guides",
+    "subtitle": "Educational content created by professionals for your emotional wellbeing and personal growth",
+    "readMore": "Read more",
+    "readFull": "Read full article",
+    "minRead": "min read",
+    "views": "views",
+    "categories": {
+      "all": "All",
+      "anxiety": "Anxiety",
+      "depression": "Depression",
+      "relationships": "Relationships",
+      "selfesteem": "Self-esteem",
+      "stress": "Stress",
+      "mindfulness": "Mindfulness",
+      "development": "Personal Development"
+    },
+    "share": {
+      "title": "Share article",
+      "instagram": "Instagram",
+      "whatsapp": "WhatsApp",
+      "twitter": "Twitter / X",
+      "copyLink": "Copy link",
+      "download": "Download image",
+      "copied": "Link copied",
+      "tip": "Share the image directly or save it to your gallery"
+    },
+    "premium": "Premium Content",
+    "unlock": "Unlock",
+    "comingSoon": "More articles coming soon",
+    "empty": "We're preparing quality content. Come back soon."
+  },
+  "tests": {
+    "title": "Psychological Tests",
+    "subtitle": "Evaluate different aspects of your emotional wellbeing with validated tests",
+    "startTest": "Start test",
+    "viewResults": "View results",
+    "questions": "questions",
+    "minutes": "minutes",
+    "completed": "Completed",
+    "notCompleted": "Not completed",
+    "result": "Result",
+    "retake": "Retake test"
+  },
+  "diary": {
+    "title": "Emotional Diary",
+    "subtitle": "Record your emotions and daily reflections",
+    "addEntry": "New entry",
+    "mood": "Mood",
+    "moods": {
+      "great": "Great",
+      "good": "Good",
+      "okay": "Okay",
+      "bad": "Bad",
+      "terrible": "Terrible"
+    },
+    "entry": "Entry",
+    "entries": "Entries",
+    "noEntries": "No entries yet",
+    "writeFirst": "Write your first entry to start tracking your emotional wellbeing",
+    "deleteConfirm": "Are you sure you want to delete this entry?"
+  },
+  "mindfulness": {
+    "title": "Mindfulness Zone",
+    "subtitle": "Relaxation techniques and meditation for your inner peace",
+    "sounds": "Ambient sounds",
+    "soundsDescription": "Relax with these nature sounds",
+    "breathing": "Breathing exercises",
+    "breathingDescription": "Breathing techniques to reduce stress",
+    "meditation": "Guided meditation",
+    "meditationDescription": "Meditation sessions for beginners",
+    "start": "Start",
+    "pause": "Pause",
+    "volume": "Volume"
+  },
+  "pricing": {
+    "title": "Plans & Pricing",
+    "subtitle": "Choose the plan that best suits your needs",
+    "free": "Free",
+    "premium": "Premium",
+    "month": "month",
+    "currentPlan": "Current plan",
+    "getPremium": "Get Premium",
+    "freeFeatures": {
+      "chat": "AI Chat (5 messages/day)",
+      "articles": "Access to free articles",
+      "tests": "Basic tests",
+      "diary": "Emotional diary (7 days)"
+    },
+    "premiumFeatures": {
+      "chat": "Unlimited AI chat",
+      "articles": "All Premium articles",
+      "tests": "Advanced tests with analysis",
+      "diary": "Unlimited emotional diary",
+      "mindfulness": "Premium meditations",
+      "history": "Conversation history",
+      "priority": "Priority support"
+    }
+  },
+  "profile": {
+    "title": "My Profile",
+    "subtitle": "Manage your account and preferences",
+    "editProfile": "Edit profile",
+    "name": "Name",
+    "email": "Email",
+    "memberSince": "Member since",
+    "subscription": "Subscription",
+    "changePassword": "Change password",
+    "deleteAccount": "Delete account",
+    "deleteWarning": "This action cannot be undone"
+  },
+  "footer": {
+    "description": "Your emotional wellbeing companion. Accessible psychological support for everyone.",
+    "links": "Links",
+    "legal": "Legal",
+    "privacy": "Privacy Policy",
+    "terms": "Terms of Service",
+    "contact": "Contact",
+    "rights": "All rights reserved"
+  },
+  "auth": {
+    "login": "Log In",
+    "signup": "Create Account",
+    "email": "Email",
+    "password": "Password",
+    "confirmPassword": "Confirm password",
+    "forgotPassword": "Forgot your password?",
+    "noAccount": "Don't have an account?",
+    "hasAccount": "Already have an account?",
+    "orContinue": "Or continue with",
+    "google": "Google"
+  }
+}
