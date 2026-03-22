@@ -392,20 +392,24 @@ export default function ArticlesSection() {
                         </div>
                         <ChevronRight className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
                       </div>
-                      {isExpanded && canAccess && (
-                        <div className="mt-4 pt-4 border-t text-sm text-muted-foreground">
-                          <div className="prose prose-sm max-w-none dark:prose-invert">
-                            {article.content?.split('\n').slice(0, 5).map((p, i) => <p key={i} className="mb-2">{p}</p>)}
-                          </div>
-                          <Button className="w-full mt-4" variant="outline">Leer artículo completo</Button>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
+                    {isExpanded && canAccess && (
+  <div className="mt-4 pt-4 border-t text-sm text-muted-foreground" onClick={(e) => e.stopPropagation()}>
+    <div className="prose prose-sm max-w-none dark:prose-invert">
+      {article.content?.split('\n').slice(0, 5).map((paragraph, idx) => (
+        <p key={idx} className="mb-2">{paragraph}</p>
+      ))}
+    </div>
+    <Button 
+      className="w-full mt-4" 
+      variant="outline" 
+      asChild
+    >
+      <Link href={`/articulos/${article.slug}`}>
+        Leer artículo completo
+      </Link>
+    </Button>
+  </div>
+)}
 
           {!isLoading && articles.length === 0 && (
             <div className="text-center py-12"><BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" /><h3 className="text-lg font-medium mb-2">Próximamente más artículos</h3><p className="text-muted-foreground">Estamos preparando contenido de calidad.</p></div>
