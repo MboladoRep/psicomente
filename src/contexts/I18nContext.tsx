@@ -27,10 +27,28 @@ interface I18nContextType {
 
 const I18nContext = createContext<I18nContextType | undefined>(undefined);
 
+// Default translation function for SSR/build
+const defaultT = (key: string): string => {
+  const keys = key.split('.');
+  let value: unknown = messages['es'];
+  
+  for (const k of keys) {
+    if (value && typeof value === 'object' && k in value) {
+      value = (value as Record<string, unknown>)[k];
+    } else {
+      return key;
+    }
+  }
+  
+  return typeof value === 'string' ? value : key;
+};
+
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>('es');
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     const savedLocale = localStorage.getItem('psicomente_locale') as Locale;
     if (savedLocale && (savedLocale === 'es' || savedLocale === 'en')) {
       setLocaleState(savedLocale);
@@ -44,8 +62,10 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
   const setLocale = (newLocale: Locale) => {
     setLocaleState(newLocale);
-    localStorage.setItem('psicomente_locale', newLocale);
-    document.documentElement.lang = newLocale;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('psicomente_locale', newLocale);
+      document.documentElement.lang = newLocale;
+    }
   };
 
   const t = (key: string): string => {
@@ -64,11 +84,19 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    document.documentElement.lang = locale;
-  }, [locale]);
+    if (mounted) {
+      document.documentElement.lang = locale;
+    }
+  }, [locale, mounted]);
 
   return (
-    <I18nContext.Provider value={{ locale, setLocale, t, localeNames, locales: ['es', 'en'] }}>
+    <I18nContext.Provider value={{ 
+      locale, 
+      setLocale, 
+      t, 
+      localeNames,
+      locales: ['es', 'en']
+    }}>
       {children}
     </I18nContext.Provider>
   );
@@ -76,9 +104,18 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
 export function useTranslation() {
   const context = useContext(I18nContext);
+  
+  // Return default values for SSR/build - don't throw error
   if (context === undefined) {
-    throw new Error('useTranslation must be used within an I18nProvider');
+    return {
+      locale: 'es' as Locale,
+      setLocale: () => {},
+      t: defaultT,
+      localeNames,
+      locales: ['es', 'en'] as Locale[]
+    };
   }
+  
   return context;
 }
 
