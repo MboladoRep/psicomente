@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -115,6 +116,7 @@ const defaultImages: Record<string, string> = {
 };
 
 export default function ArticlesSection() {
+  const router = useRouter();
   const { user } = useUser();
   const { toast } = useToast();
   const [selectedCategory, setSelectedCategory] = useState('todos');
@@ -595,12 +597,13 @@ export default function ArticlesSection() {
                           </div>
                           <Button 
                             className="w-full mt-4" 
-                            variant="outline" 
-                            asChild
+                            variant="outline"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              router.push(`/articulos/${article.slug}`);
+                            }}
                           >
-                            <Link href={`/articulos/${article.slug}`}>
-                              Leer artículo completo
-                            </Link>
+                            Leer artículo completo
                           </Button>
                         </div>
                       )}
