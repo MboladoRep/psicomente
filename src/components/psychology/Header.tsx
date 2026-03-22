@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { 
   Brain, 
@@ -13,6 +12,7 @@ import {
   LogOut, 
   Sparkles,
   ChevronDown,
+  Settings,
   Shield
 } from 'lucide-react';
 import {
@@ -25,28 +25,26 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { useUser } from '@/hooks/useUser';
 import AuthModal from './AuthModal';
+import { LanguageSelector } from '@/components/ui/LanguageSelector';
+import { useTranslation } from '@/contexts/I18nContext';
 
 export default function Header() {
-  const { user, progress, logout, isAdmin } = useUser();
-  const router = useRouter();
+  const { user, progress, logout, upgradeToPremium, isAdmin } = useUser();
+  const { t } = useTranslation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
 
   const navItems = [
-    { label: 'Inicio', href: '#inicio' },
-    { label: 'Chat IA', href: '#chat' },
-    { label: 'Artículos', href: '#articulos' },
-    { label: 'Tests', href: '#tests' },
-    { label: 'Diario', href: '#diario' },
-    { label: 'Mindfulness', href: '#mindfulness' },
-    { label: 'Precios', href: '#precios' },
+    { label: t('nav.home'), href: '#inicio' },
+    { label: t('nav.chat'), href: '#chat' },
+    { label: t('nav.articles'), href: '#articulos' },
+    { label: t('nav.tests'), href: '#tests' },
+    { label: t('nav.diary'), href: '#diario' },
+    { label: t('nav.mindfulness'), href: '#mindfulness' },
+    { label: t('pricing.title'), href: '#precios' },
   ];
 
   const levelName = ['', 'Novato', 'Aprendiz', 'Intermedio', 'Avanzado', 'Experto', 'Maestro'][progress.level] || 'Novato';
-
-  const handleAvatarClick = () => {
-    router.push('/perfil');
-  };
 
   return (
     <>
@@ -54,11 +52,11 @@ export default function Header() {
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 group">
-            <div className="relative p-2 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/5 group-hover:from-purple-500/30 group-hover:to-pink-500/10 transition-all">
-              <Brain className="h-6 w-6 text-purple-600" />
-              <Sparkles className="h-3 w-3 text-purple-400 absolute -top-1 -right-1" />
+            <div className="relative p-2 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 group-hover:from-primary/30 group-hover:to-primary/10 transition-all">
+              <Brain className="h-6 w-6 text-primary" />
+              <Sparkles className="h-3 w-3 text-primary/60 absolute -top-1 -right-1" />
             </div>
-            <span className="text-xl font-bold bg-gradient-to-r from-purple-600 to-pink-500 bg-clip-text text-transparent">
+            <span className="text-xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
               PsicoMente
             </span>
           </Link>
@@ -78,6 +76,9 @@ export default function Header() {
 
           {/* User Section */}
           <div className="flex items-center gap-3">
+            {/* Language Selector */}
+            <LanguageSelector />
+            
             {user ? (
               <>
                 {/* Points Badge */}
@@ -89,28 +90,34 @@ export default function Header() {
                   </Badge>
                 </div>
 
-                {/* Premium Badge - Solo muestra si ES Premium */}
-                {user.isPremium && (
-                  <Badge className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white border-0">
+                {/* Premium Badge or Upgrade Button */}
+                {user.isPremium ? (
+                  <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white border-0">
                     <Crown className="h-3 w-3 mr-1" />
                     Premium
                   </Badge>
+                ) : (
+                  <Button
+                    size="sm"
+                    onClick={() => document.getElementById('precios')?.scrollIntoView({ behavior: 'smooth' })}
+                    className="hidden sm:flex bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white"
+                  >
+                    <Crown className="h-4 w-4 mr-1" />
+                    Premium
+                  </Button>
                 )}
 
                 {/* User Menu */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" className="flex items-center gap-2">
-                      <button 
-                        onClick={handleAvatarClick}
-                        className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-medium overflow-hidden hover:ring-2 hover:ring-purple-400 transition-all"
-                      >
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center text-white font-medium overflow-hidden">
                         {user.avatar ? (
                           <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
                         ) : (
                           user.name.charAt(0).toUpperCase()
                         )}
-                      </button>
+                      </div>
                       <span className="hidden sm:inline text-sm">{user.name}</span>
                       <ChevronDown className="h-4 w-4 text-muted-foreground" />
                     </Button>
@@ -119,21 +126,8 @@ export default function Header() {
                     <div className="px-2 py-1.5">
                       <p className="text-sm font-medium">{user.name}</p>
                       <p className="text-xs text-muted-foreground">{user.email}</p>
-                      {user.isPremium && (
-                        <p className="text-xs text-emerald-600 flex items-center gap-1 mt-1">
-                          <Crown className="h-3 w-3" />
-                          Usuario Premium
-                        </p>
-                      )}
                     </div>
                     <DropdownMenuSeparator />
-                    {/* Mi Perfil Link */}
-                    <DropdownMenuItem asChild>
-                      <Link href="/perfil" className="cursor-pointer">
-                        <User className="h-4 w-4 mr-2 text-purple-500" />
-                        Mi Perfil
-                      </Link>
-                    </DropdownMenuItem>
                     {/* Admin Panel Link - Only visible for admins */}
                     {isAdmin && (
                       <DropdownMenuItem asChild>
@@ -143,10 +137,16 @@ export default function Header() {
                         </Link>
                       </DropdownMenuItem>
                     )}
+                    {!user.isPremium && (
+                      <DropdownMenuItem onClick={upgradeToPremium} className="text-amber-600">
+                        <Crown className="h-4 w-4 mr-2" />
+                        {t('pricing.getPremium')}
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={logout} className="text-red-600">
                       <LogOut className="h-4 w-4 mr-2" />
-                      Cerrar Sesión
+                      {t('nav.logout')}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -154,7 +154,7 @@ export default function Header() {
             ) : (
               <Button onClick={() => setShowAuthModal(true)}>
                 <User className="h-4 w-4 mr-2" />
-                Iniciar Sesión
+                {t('nav.login')}
               </Button>
             )}
 
@@ -184,17 +184,6 @@ export default function Header() {
                   {item.label}
                 </a>
               ))}
-              {/* Profile Link in Mobile Menu */}
-              {user && (
-                <Link
-                  href="/perfil"
-                  className="px-3 py-2 text-sm font-medium text-purple-500 hover:text-purple-600 transition-colors rounded-md hover:bg-muted flex items-center gap-2"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  <User className="h-4 w-4" />
-                  Mi Perfil
-                </Link>
-              )}
               {/* Admin Link in Mobile Menu */}
               {isAdmin && (
                 <Link
