@@ -1,0 +1,188 @@
+{
+  "common": {
+    "loading": "Cargando...",
+    "error": "Error",
+    "success": "Éxito",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "close": "Cerrar",
+    "share": "Compartir",
+    "copy": "Copiar",
+    "copied": "Copiado",
+    "language": "Idioma",
+    "spanish": "Español",
+    "english": "Inglés"
+  },
+  "nav": {
+    "home": "Inicio",
+    "chat": "Chat",
+    "articles": "Artículos",
+    "tests": "Tests",
+    "diary": "Diario",
+    "mindfulness": "Mindfulness",
+    "profile": "Mi Perfil",
+    "logout": "Cerrar sesión",
+    "login": "Iniciar sesión",
+    "signup": "Registrarse",
+    "premium": "Premium"
+  },
+  "hero": {
+    "title": "Tu bienestar mental importa",
+    "subtitle": "PsicoMente es tu compañero de bienestar emocional. Accede a apoyo psicológico profesional, herramientas de autoconocimiento y recursos personalizados para tu crecimiento personal.",
+    "cta": "Comenzar ahora",
+    "ctaPremium": "Desbloquear Premium"
+  },
+  "chat": {
+    "title": "Chat Psicológico",
+    "subtitle": "Conversa con nuestra IA especializada en bienestar emocional",
+    "placeholder": "Escribe tu mensaje aquí...",
+    "send": "Enviar",
+    "thinking": "Pensando...",
+    "saveConversation": "Guardar conversación",
+    "savedConversations": "Conversaciones guardadas",
+    "noConversations": "No hay conversaciones guardadas",
+    "newChat": "Nueva conversación",
+    "premiumRequired": "Esta función requiere Premium",
+    "limitReached": "Límite de conversaciones alcanzado",
+    "upgradePremium": "Actualiza a Premium para conversaciones ilimitadas"
+  },
+  "articles": {
+    "title": "Artículos y Guías",
+    "subtitle": "Contenido educativo creado por profesionales para tu bienestar emocional y crecimiento personal",
+    "readMore": "Leer más",
+    "readFull": "Leer artículo completo",
+    "minRead": "min de lectura",
+    "views": "vistas",
+    "categories": {
+      "all": "Todos",
+      "anxiety": "Ansiedad",
+      "depression": "Depresión",
+      "relationships": "Relaciones",
+      "selfesteem": "Autoestima",
+      "stress": "Estrés",
+      "mindfulness": "Mindfulness",
+      "development": "Desarrollo Personal"
+    },
+    "share": {
+      "title": "Compartir artículo",
+      "instagram": "Instagram",
+      "whatsapp": "WhatsApp",
+      "twitter": "Twitter / X",
+      "copyLink": "Copiar enlace",
+      "download": "Descargar imagen",
+      "copied": "Enlace copiado",
+      "tip": "Comparte la imagen directamente o guárdala en tu galería"
+    },
+    "premium": "Contenido Premium",
+    "unlock": "Desbloquear",
+    "comingSoon": "Próximamente más artículos",
+    "empty": "Estamos preparando contenido de calidad. Vuelve pronto."
+  },
+  "tests": {
+    "title": "Tests Psicológicos",
+    "subtitle": "Evalúa diferentes aspectos de tu bienestar emocional con tests validados",
+    "startTest": "Comenzar test",
+    "viewResults": "Ver resultados",
+    "questions": "preguntas",
+    "minutes": "minutos",
+    "completed": "Completado",
+    "notCompleted": "Sin completar",
+    "result": "Resultado",
+    "retake": "Repetir test"
+  },
+  "diary": {
+    "title": "Diario Emocional",
+    "subtitle": "Registra tus emociones y reflexiones diarias",
+    "addEntry": "Nueva entrada",
+    "mood": "Estado de ánimo",
+    "moods": {
+      "great": "Genial",
+      "good": "Bien",
+      "okay": "Normal",
+      "bad": "Mal",
+      "terrible": "Terrible"
+    },
+    "entry": "Entrada",
+    "entries": "Entradas",
+    "noEntries": "No hay entradas todavía",
+    "writeFirst": "Escribe tu primera entrada para comenzar a registrar tu bienestar emocional",
+    "deleteConfirm": "¿Estás seguro de que quieres eliminar esta entrada?"
+  },
+  "mindfulness": {
+    "title": "Zona Mindfulness",
+    "subtitle": "Técnicas de relajación y meditación para tu paz interior",
+    "sounds": "Sonidos ambientales",
+    "soundsDescription": "Relájate con estos sonidos de la naturaleza",
+    "breathing": "Ejercicios de respiración",
+    "breathingDescription": "Técnicas de respiración para reducir el estrés",
+    "meditation": "Meditación guiada",
+    "meditationDescription": "Sesiones de meditación para principiantes",
+    "start": "Comenzar",
+    "pause": "Pausar",
+    "volume": "Volumen"
+  },
+  "pricing": {
+    "title": "Planes y Precios",
+    "subtitle": "Elige el plan que mejor se adapte a tus necesidades",
+    "free": "Gratis",
+    "premium": "Premium",
+    "month": "mes",
+    "currentPlan": "Plan actual",
+    "getPremium": "Obtener Premium",
+    "freeFeatures": {
+      "chat": "Chat con IA (5 mensajes/día)",
+      "articles": "Acceso a artículos gratuitos",
+      "tests": "Tests básicos",
+      "diary": "Diario emocional (7 días)"
+    },
+    "premiumFeatures": {
+      "chat": "Chat ilimitado con IA",
+      "articles": "Todos los artículos Premium",
+      "tests": "Tests avanzados con análisis",
+      "diary": "Diario emocional ilimitado",
+      "mindfulness": "Meditaciones Premium",
+      "history": "Historial de conversaciones",
+      "priority": "Soporte prioritario"
+    }
+  },
+  "profile": {
+    "title": "Mi Perfil",
+    "subtitle": "Gestiona tu cuenta y preferencias",
+    "editProfile": "Editar perfil",
+    "name": "Nombre",
+    "email": "Correo electrónico",
+    "memberSince": "Miembro desde",
+    "subscription": "Suscripción",
+    "changePassword": "Cambiar contraseña",
+    "deleteAccount": "Eliminar cuenta",
+    "deleteWarning": "Esta acción no se puede deshacer"
+  },
+  "footer": {
+    "description": "Tu compañero de bienestar emocional. Apoyo psicológico accesible para todos.",
+    "links": "Enlaces",
+    "legal": "Legal",
+    "privacy": "Política de Privacidad",
+    "terms": "Términos de Servicio",
+    "contact": "Contacto",
+    "rights": "Todos los derechos reservados"
+  },
+  "pricing": {
+    "title": "Planes y Precios",
+    "subtitle": "Elige el plan que mejor se adapte a tus necesidades",
+    "getPremium": "Obtener Premium"
+  },
+  "auth": {
+    "login": "Iniciar Sesión",
+    "signup": "Crear Cuenta",
+    "email": "Correo electrónico",
+    "password": "Contraseña",
+    "confirmPassword": "Confirmar contraseña",
+    "forgotPassword": "¿Olvidaste tu contraseña?",
+    "noAccount": "¿No tienes cuenta?",
+    "hasAccount": "¿Ya tienes cuenta?",
+    "orContinue": "O continúa con",
+    "google": "Google"
+  }
+}
