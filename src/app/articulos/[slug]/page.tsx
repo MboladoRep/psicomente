@@ -18,6 +18,7 @@ import {
   Share2,
   Loader2,
   ChevronLeft,
+  Volume2,
 } from 'lucide-react';
 import {
   Sheet,
@@ -43,6 +44,7 @@ import {
   isIOS,
   canShareFiles,
 } from '@/lib/shareImage';
+import { ArticleReader } from '@/components/ui/ArticleReader';
 
 interface Article {
   id: string;
@@ -415,8 +417,14 @@ export default function ArticlePage() {
               Publicado el {formatDate(article.created_at)}
             </p>
 
+            {/* Audio Reader */}
+            <ArticleReader 
+              text={article.content || article.excerpt || ''} 
+              title={article.title}
+            />
+
             {/* Divider */}
-            <div className="border-t mb-6" />
+            <div className="border-t mb-6 mt-6" />
 
             {/* Content */}
             <div className="prose prose-sm md:prose-base max-w-none dark:prose-invert">
