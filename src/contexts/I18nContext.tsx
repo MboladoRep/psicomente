@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import esMessages from '@/messages/es.json';
 import enMessages from '@/messages/en.json';
 
@@ -43,10 +43,27 @@ const defaultT = (key: string): string => {
   return typeof value === 'string' ? value : key;
 };
 
+// Translation function factory
+const createTranslationFunction = (locale: Locale) => (key: string): string => {
+  const keys = key.split('.');
+  let value: unknown = messages[locale];
+  
+  for (const k of keys) {
+    if (value && typeof value === 'object' && k in value) {
+      value = (value as Record<string, unknown>)[k];
+    } else {
+      return key;
+    }
+  }
+  
+  return typeof value === 'string' ? value : key;
+};
+
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>('es');
   const [mounted, setMounted] = useState(false);
 
+  // Initialize from localStorage or browser language
   useEffect(() => {
     setMounted(true);
     const savedLocale = localStorage.getItem('psicomente_locale') as Locale;
@@ -60,34 +77,24 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const setLocale = (newLocale: Locale) => {
+  // Set locale and persist
+  const setLocale = useCallback((newLocale: Locale) => {
     setLocaleState(newLocale);
     if (typeof window !== 'undefined') {
       localStorage.setItem('psicomente_locale', newLocale);
       document.documentElement.lang = newLocale;
     }
-  };
+  }, []);
 
-  const t = (key: string): string => {
-    const keys = key.split('.');
-    let value: unknown = messages[locale];
-    
-    for (const k of keys) {
-      if (value && typeof value === 'object' && k in value) {
-        value = (value as Record<string, unknown>)[k];
-      } else {
-        return key;
-      }
-    }
-    
-    return typeof value === 'string' ? value : key;
-  };
-
+  // Update document language when locale changes
   useEffect(() => {
-    if (mounted) {
+    if (mounted && typeof document !== 'undefined') {
       document.documentElement.lang = locale;
     }
   }, [locale, mounted]);
+
+  // Create translation function with current locale
+  const t = useCallback(createTranslationFunction(locale), [locale]);
 
   return (
     <I18nContext.Provider value={{ 
