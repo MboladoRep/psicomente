@@ -4,10 +4,13 @@ import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuTrigger,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
-import { Globe, Check } from 'lucide-react';
+import { Globe } from 'lucide-react';
 import { useTranslation } from '@/contexts/I18nContext';
 
 export function LanguageSelector() {
@@ -21,20 +24,16 @@ export function LanguageSelector() {
           <span className="hidden sm:inline">{localeNames[locale]}</span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        {locales.map((loc) => (
-          <DropdownMenuItem
-            key={loc}
-            onSelect={(e) => {
-              e.preventDefault();
-              setLocale(loc);
-            }}
-            className="flex items-center justify-between"
-          >
-            <span>{localeNames[loc]}</span>
-            {locale === loc && <Check className="h-4 w-4 text-primary" />}
-          </DropdownMenuItem>
-        ))}
+      <DropdownMenuContent align="end" className="w-40">
+        <DropdownMenuLabel>Idioma / Language</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuRadioGroup value={locale} onValueChange={(value) => setLocale(value as 'es' | 'en')}>
+          {locales.map((loc) => (
+            <DropdownMenuRadioItem key={loc} value={loc}>
+              {localeNames[loc]}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   );
