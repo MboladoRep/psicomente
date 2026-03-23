@@ -7,7 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Globe } from 'lucide-react';
+import { Globe, Check } from 'lucide-react';
 import { useTranslation } from '@/contexts/I18nContext';
 
 export function LanguageSelector() {
@@ -25,10 +25,14 @@ export function LanguageSelector() {
         {locales.map((loc) => (
           <DropdownMenuItem
             key={loc}
-            onClick={() => setLocale(loc)}
-            className={locale === loc ? 'bg-accent' : ''}
+            onSelect={(e) => {
+              e.preventDefault();
+              setLocale(loc);
+            }}
+            className="flex items-center justify-between"
           >
-            {localeNames[loc]}
+            <span>{localeNames[loc]}</span>
+            {locale === loc && <Check className="h-4 w-4 text-primary" />}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>
