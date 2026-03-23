@@ -1,23 +1,22 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useMemo, useCallback } from 'react';
 import esMessages from '@/messages/es.json';
 import enMessages from '@/messages/en.json';
 
-type Messages = typeof esMessages;
 type Locale = 'es' | 'en';
 
-const messages: Record<Locale, Messages> = {
+const messages = {
   es: esMessages,
   en: enMessages
-};
+} as const;
 
 const localeNames: Record<Locale, string> = {
   es: 'Español',
   en: 'English'
 };
 
-interface I18nContextType {
+interface I18nContextValue {
   locale: Locale;
   setLocale: (locale: Locale) => void;
   t: (key: string) => string;
@@ -25,105 +24,77 @@ interface I18nContextType {
   locales: Locale[];
 }
 
-const I18nContext = createContext<I18nContextType | undefined>(undefined);
+const I18nContext = createContext<I18nContextValue | null>(null);
 
-// Default translation function for SSR/build
-const defaultT = (key: string): string => {
-  const keys = key.split('.');
-  let value: unknown = messages['es'];
-  
-  for (const k of keys) {
-    if (value && typeof value === 'object' && k in value) {
-      value = (value as Record<string, unknown>)[k];
+// Helper function to get nested value from messages
+function getNestedValue(obj: unknown, keys: string[]): string {
+  let value = obj;
+  for (const key of keys) {
+    if (value && typeof value === 'object' && key in value) {
+      value = (value as Record<string, unknown>)[key];
     } else {
-      return key;
+      return keys.join('.');
     }
   }
-  
-  return typeof value === 'string' ? value : key;
-};
-
-// Translation function factory
-const createTranslationFunction = (locale: Locale) => (key: string): string => {
-  const keys = key.split('.');
-  let value: unknown = messages[locale];
-  
-  for (const k of keys) {
-    if (value && typeof value === 'object' && k in value) {
-      value = (value as Record<string, unknown>)[k];
-    } else {
-      return key;
-    }
-  }
-  
-  return typeof value === 'string' ? value : key;
-};
+  return typeof value === 'string' ? value : keys.join('.');
+}
 
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>('es');
-  const [mounted, setMounted] = useState(false);
 
-  // Initialize from localStorage or browser language
+  // Initialize from localStorage on mount
   useEffect(() => {
-    setMounted(true);
-    const savedLocale = localStorage.getItem('psicomente_locale') as Locale;
-    if (savedLocale && (savedLocale === 'es' || savedLocale === 'en')) {
-      setLocaleState(savedLocale);
-    } else {
-      const browserLang = navigator.language.split('-')[0];
-      if (browserLang === 'en') {
-        setLocaleState('en');
-      }
+    const saved = localStorage.getItem('psicomente_locale');
+    if (saved === 'es' || saved === 'en') {
+      setLocaleState(saved);
+    } else if (navigator.language.startsWith('en')) {
+      setLocaleState('en');
     }
   }, []);
 
-  // Set locale and persist
+  // Save locale and update DOM
   const setLocale = useCallback((newLocale: Locale) => {
     setLocaleState(newLocale);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('psicomente_locale', newLocale);
-      document.documentElement.lang = newLocale;
-    }
+    localStorage.setItem('psicomente_locale', newLocale);
+    document.documentElement.lang = newLocale;
   }, []);
 
-  // Update document language when locale changes
-  useEffect(() => {
-    if (mounted && typeof document !== 'undefined') {
-      document.documentElement.lang = locale;
-    }
-  }, [locale, mounted]);
+  // Translation function
+  const t = useCallback((key: string) => {
+    return getNestedValue(messages[locale], key.split('.'));
+  }, [locale]);
 
-  // Create translation function with current locale
-  const t = useCallback(createTranslationFunction(locale), [locale]);
+  // Memoize context value
+  const value = useMemo<I18nContextValue>(() => ({
+    locale,
+    setLocale,
+    t,
+    localeNames,
+    locales: ['es', 'en']
+  }), [locale, setLocale, t]);
 
   return (
-    <I18nContext.Provider value={{ 
-      locale, 
-      setLocale, 
-      t, 
-      localeNames,
-      locales: ['es', 'en']
-    }}>
+    <I18nContext.Provider value={value}>
       {children}
     </I18nContext.Provider>
   );
 }
 
-export function useTranslation() {
+export function useTranslation(): I18nContextValue {
   const context = useContext(I18nContext);
   
-  // Return default values for SSR/build - don't throw error
-  if (context === undefined) {
+  // Fallback for SSR/build
+  if (!context) {
     return {
-      locale: 'es' as Locale,
+      locale: 'es',
       setLocale: () => {},
-      t: defaultT,
+      t: (key) => getNestedValue(messages.es, key.split('.')),
       localeNames,
-      locales: ['es', 'en'] as Locale[]
+      locales: ['es', 'en']
     };
   }
   
   return context;
 }
 
-export type { Locale, Messages };
+export type { Locale };
