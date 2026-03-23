@@ -1,46 +1,27 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-} from '@/components/ui/dropdown-menu';
-import { Globe, Check } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { useTranslation } from '@/contexts/I18nContext';
 
 export function LanguageSelector() {
-  const { locale, setLocale, localeNames, locales } = useTranslation();
-
-  const changeLanguage = (newLocale: 'es' | 'en') => {
-    setLocale(newLocale);
-  };
+  const { locale, setLocale, locales } = useTranslation();
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="sm" className="gap-2">
-          <Globe className="h-4 w-4" />
-          <span className="hidden sm:inline">{localeNames[locale]}</span>
+    <div className="flex items-center gap-1">
+      {locales.map((loc) => (
+        <Button
+          key={loc}
+          variant={locale === loc ? 'default' : 'ghost'}
+          size="sm"
+          onClick={() => setLocale(loc)}
+          className="gap-1 px-2"
+        >
+          {loc === 'es' ? '🇪🇸' : '🇬🇧'}
+          <span className="hidden sm:inline">{loc.toUpperCase()}</span>
+          {locale === loc && <Check className="h-3 w-3" />}
         </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-40">
-        <DropdownMenuLabel>Idioma / Language</DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        {locales.map((loc) => (
-          <DropdownMenuItem
-            key={loc}
-            onSelect={() => changeLanguage(loc)}
-            className="flex items-center justify-between cursor-pointer"
-          >
-            <span>{localeNames[loc]}</span>
-            {locale === loc && <Check className="h-4 w-4 text-primary" />}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+      ))}
+    </div>
   );
 }
