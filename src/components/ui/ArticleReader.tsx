@@ -5,13 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import {
   Volume2,
-  VolumeX,
   Play,
   Pause,
   Square,
   Loader2,
   SkipBack,
   SkipForward,
+  AlertCircle,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -32,17 +32,19 @@ export function ArticleReader({ text, title }: ArticleReaderProps) {
   const { toast } = useToast();
   const [speechRate, setSpeechRate] = useState(1.0);
   const [isLoading, setIsLoading] = useState(false);
+  const [isPlaying, setIsPlaying] useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
+  const [error, setError] = useState<string | null>(null);
 
   // Chunks state
   const [chunks, setChunks] = useState<string[]>([]);
   const [currentChunkIndex, setCurrentChunkIndex] = useState(0);
-  const [audioUrls, setAudioUrls] = useState<Map<number, string>>(new Map());
+  const audioUrlsRef = useRef<Map<number, string>>(new Map());
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const isInitializedRef = useRef(false);
 
   // Clean text for TTS
   const cleanText = text
@@ -53,7 +55,10 @@ export function ArticleReader({ text, title }: ArticleReaderProps) {
 
   // Initialize chunks on mount
   useEffect(() => {
-    initializeChunks();
+    if (cleanText && !isInitializedRef.current) {
+      initializeChunks();
+      isInitializedRef.current = true;
+    }
   }, [cleanText]);
 
   // Initialize chunks from API
@@ -61,18 +66,27 @@ export function ArticleReader({ text, title }: ArticleReaderProps) {
     if (!cleanText) return;
 
     try {
+      setError(null);
       const response = await fetch('/api/tts', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: cleanText }),
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        setChunks(data.chunks || []);
+      if (!response.ok) {
+        throw new Error('Error al procesar el texto');
       }
-    } catch (error) {
-      console.error('Error initializing chunks:', error);
+
+      const data = await response.json();
+      
+      if (data.chunks && data.chunks.length > 0) {
+        setChunks(data.chunks);
+      } else {
+        setError('No hay contenido para reproducir');
+      }
+    } catch (err) {
+      console.error('Error initializing chunks:', err);
+      setError('Error al inicializar el audio');
     }
   };
 
@@ -80,9 +94,9 @@ export function ArticleReader({ text, title }: ArticleReaderProps) {
   const generateAudioForChunk = async (index: number): Promise<string | null> => {
     if (!chunks[index]) return null;
 
-    // Check if we already have this audio
-    if (audioUrls.has(index)) {
-      return audioUrls.get(index)!;
+    // Check if we already have this audio cached
+    if (audioUrlsRef.current.has(index)) {
+      return audioUrlsRef.current.get(index)!;
     }
 
     try {
@@ -97,44 +111,54 @@ export function ArticleReader({ text, title }: ArticleReaderProps) {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to generate audio');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to generate audio');
       }
 
       const audioBlob = await response.blob();
-      const audioUrl = URL.createObjectURL(audioBlob);
+      
+      if (audioBlob.size === 0) {
+        throw new Error('Empty audio response');
+      }
 
-      // Store the URL
-      setAudioUrls((prev) => new Map(prev).set(index, audioUrl));
+      const audioUrl = URL.createObjectURL(audioBlob);
+      audioUrlsRef.current.set(index, audioUrl);
 
       return audioUrl;
-    } catch (error) {
-      console.error('Error generating audio:', error);
+    } catch (err) {
+      console.error('Error generating audio:', err);
       return null;
     }
   };
 
   // Play a specific chunk
-  const playChunk = async (index: number) => {
+  const playChunk = useCallback(async (index: number) => {
     if (index >= chunks.length) {
-      // Finished all chunks
       setIsPlaying(false);
+      setIsPaused(false);
       setProgress(100);
       setCurrentChunkIndex(0);
+      toast({
+        title: '✅ Finalizado',
+        description: 'Has escuchado todo el artículo',
+      });
       return;
     }
 
     setIsLoading(true);
+    setError(null);
 
     const audioUrl = await generateAudioForChunk(index);
 
     if (!audioUrl) {
+      setError('No se pudo generar el audio. Inténtalo de nuevo.');
+      setIsLoading(false);
+      setIsPlaying(false);
       toast({
         title: 'Error',
         description: 'No se pudo generar el audio',
         variant: 'destructive',
       });
-      setIsLoading(false);
-      setIsPlaying(false);
       return;
     }
 
@@ -144,31 +168,32 @@ export function ArticleReader({ text, title }: ArticleReaderProps) {
     if (audioRef.current) {
       audioRef.current.src = audioUrl;
       audioRef.current.load();
+      
       try {
         await audioRef.current.play();
-      } catch (error) {
-        console.error('Error playing audio:', error);
+      } catch (playError) {
+        console.error('Error playing audio:', playError);
+        setError('Error al reproducir. Haz clic en play de nuevo.');
+        setIsPlaying(false);
       }
     }
-  };
+  }, [chunks, speechRate, toast]);
 
   // Handle play/pause
   const handlePlayPause = async () => {
+    setError(null);
+
     if (chunks.length === 0) {
-      // Initialize chunks first
       await initializeChunks();
       if (chunks.length === 0) {
-        toast({
-          title: 'Error',
-          description: 'No hay contenido para reproducir',
-          variant: 'destructive',
-        });
+        setError('No hay contenido para reproducir');
         return;
       }
     }
 
     if (!isPlaying) {
       setIsPlaying(true);
+      setIsPaused(false);
       toast({
         title: '🔊 Reproduciendo artículo',
         description: title || 'Escuchando el contenido',
@@ -177,8 +202,10 @@ export function ArticleReader({ text, title }: ArticleReaderProps) {
     } else if (audioRef.current) {
       if (audioRef.current.paused) {
         audioRef.current.play();
+        setIsPaused(false);
       } else {
         audioRef.current.pause();
+        setIsPaused(true);
       }
     }
   };
@@ -188,72 +215,79 @@ export function ArticleReader({ text, title }: ArticleReaderProps) {
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
+      audioRef.current.src = '';
     }
     setIsPlaying(false);
+    setIsPaused(false);
     setProgress(0);
     setCurrentChunkIndex(0);
-    setCurrentTime(0);
   };
 
   // Handle previous chunk
   const handlePrevious = () => {
-    if (currentChunkIndex > 0) {
+    if (currentChunkIndex > 0 && !isLoading) {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
       playChunk(currentChunkIndex - 1);
     }
   };
 
   // Handle next chunk
   const handleNext = () => {
-    if (currentChunkIndex < chunks.length - 1) {
+    if (currentChunkIndex < chunks.length - 1 && !isLoading) {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
       playChunk(currentChunkIndex + 1);
     }
   };
 
   // Handle speed change
   const handleRateChange = async (rate: number) => {
+    const wasPlaying = isPlaying && !isPaused;
+    
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+    
     setSpeechRate(rate);
+    setIsPlaying(false);
+    setIsPaused(false);
 
-    // Clear cached audio URLs since speed changed
-    audioUrls.forEach((url) => URL.revokeObjectURL(url));
-    setAudioUrls(new Map());
+    audioUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+    audioUrlsRef.current.clear();
 
-    if (isPlaying) {
-      // Restart from current chunk with new speed
+    if (wasPlaying) {
+      setIsPlaying(true);
       playChunk(currentChunkIndex);
     }
   };
 
   // Audio event handlers
   const onTimeUpdate = useCallback(() => {
-    if (audioRef.current) {
-      setCurrentTime(audioRef.current.currentTime);
-
-      // Calculate overall progress
-      const chunkProgress = audioRef.current.duration
-        ? (audioRef.current.currentTime / audioRef.current.duration) * 100
-        : 0;
-      const overallProgress =
-        ((currentChunkIndex + chunkProgress / 100) / chunks.length) * 100;
-      setProgress(overallProgress);
+    if (audioRef.current && audioRef.current.duration) {
+      const chunkProgress = (audioRef.current.currentTime / audioRef.current.duration) * 100;
+      const overallProgress = ((currentChunkIndex + chunkProgress / 100) / chunks.length) * 100;
+      setProgress(Math.min(overallProgress, 100));
     }
   }, [currentChunkIndex, chunks.length]);
 
   const onChunkEnded = useCallback(() => {
-    // Play next chunk
     if (currentChunkIndex < chunks.length - 1) {
       playChunk(currentChunkIndex + 1);
     } else {
-      // Finished
       setIsPlaying(false);
+      setIsPaused(false);
       setProgress(100);
       setCurrentChunkIndex(0);
     }
-  }, [currentChunkIndex, chunks.length]);
+  }, [currentChunkIndex, chunks.length, playChunk]);
 
-  const onLoadedMetadata = useCallback(() => {
-    if (audioRef.current) {
-      setDuration(audioRef.current.duration);
-    }
+  const onAudioError = useCallback((e: Event) => {
+    console.error('Audio error:', e);
+    setError('Error al reproducir el audio');
+    setIsPlaying(false);
   }, []);
 
   // Cleanup on unmount
@@ -261,143 +295,93 @@ export function ArticleReader({ text, title }: ArticleReaderProps) {
     return () => {
       if (audioRef.current) {
         audioRef.current.pause();
+        audioRef.current.src = '';
       }
-      audioUrls.forEach((url) => URL.revokeObjectURL(url));
+      audioUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
     };
   }, []);
 
-  // Format time
-  const formatTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
   return (
     <div className="bg-muted/50 rounded-lg p-4 space-y-4">
-      {/* Hidden audio element */}
       <audio
         ref={audioRef}
         onTimeUpdate={onTimeUpdate}
         onEnded={onChunkEnded}
-        onLoadedMetadata={onLoadedMetadata}
-        onPlay={() => setIsPlaying(true)}
-        onPause={() => {}}
+        onError={onAudioError}
+        preload="auto"
       />
 
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Volume2 className="h-5 w-5 text-primary" />
           <span className="font-medium text-sm">Escuchar artículo</span>
         </div>
 
-        {/* Speed control */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm">
-              {speechRate}x velocidad
+            <Button variant="outline" size="sm" disabled={isLoading}>
+              {speechRate}x
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Velocidad de lectura</DropdownMenuLabel>
+            <DropdownMenuLabel>Velocidad</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => handleRateChange(0.5)}>
-              0.5x - Muy lento
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleRateChange(0.75)}>
-              0.75x - Lento
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleRateChange(1.0)}>
-              1x - Normal
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleRateChange(1.25)}>
-              1.25x - Rápido
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleRateChange(1.5)}>
-              1.5x - Muy rápido
-            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleRateChange(0.5)}>0.5x</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleRateChange(0.75)}>0.75x</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleRateChange(1.0)}>1x - Normal</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleRateChange(1.25)}>1.25x</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleRateChange(1.5)}>1.5x</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
 
-      {/* Progress */}
-      {(isPlaying || progress > 0) && (
+      {error && (
+        <div className="flex items-center gap-2 p-3 bg-destructive/10 rounded-lg text-destructive text-sm">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      {(isPlaying || progress > 0) && chunks.length > 0 && (
         <div className="space-y-2">
           <Progress value={progress} className="h-2" />
           <div className="flex justify-between text-xs text-muted-foreground">
-            <span>
-              Parte {currentChunkIndex + 1} de {chunks.length}
-            </span>
-            <span>{Math.round(progress)}% completado</span>
+            <span>Parte {currentChunkIndex + 1} de {chunks.length}</span>
+            <span>{Math.round(progress)}%</span>
           </div>
         </div>
       )}
 
-      {/* Controls */}
       <div className="flex items-center justify-center gap-2">
-        {/* Previous */}
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={handlePrevious}
-          disabled={currentChunkIndex === 0 || isLoading}
-          className="h-10 w-10"
-        >
+        <Button variant="outline" size="icon" onClick={handlePrevious} disabled={currentChunkIndex === 0 || isLoading} className="h-10 w-10">
           <SkipBack className="h-4 w-4" />
         </Button>
 
-        {/* Stop */}
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={handleStop}
-          disabled={!isPlaying && progress === 0}
-          className="h-10 w-10"
-        >
+        <Button variant="outline" size="icon" onClick={handleStop} disabled={!isPlaying && progress === 0} className="h-10 w-10">
           <Square className="h-4 w-4" />
         </Button>
 
-        {/* Play/Pause */}
-        <Button
-          size="icon"
-          onClick={handlePlayPause}
-          disabled={isLoading}
-          className="h-12 w-12 rounded-full"
-        >
+        <Button size="icon" onClick={handlePlayPause} disabled={isLoading} className="h-12 w-12 rounded-full">
           {isLoading ? (
             <Loader2 className="h-5 w-5 animate-spin" />
-          ) : isPlaying ? (
+          ) : isPlaying && !isPaused ? (
             <Pause className="h-5 w-5" />
           ) : (
             <Play className="h-5 w-5 ml-0.5" />
           )}
         </Button>
 
-        {/* Next */}
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={handleNext}
-          disabled={currentChunkIndex >= chunks.length - 1 || isLoading}
-          className="h-10 w-10"
-        >
+        <Button variant="outline" size="icon" onClick={handleNext} disabled={currentChunkIndex >= chunks.length - 1 || isLoading} className="h-10 w-10">
           <SkipForward className="h-4 w-4" />
         </Button>
       </div>
 
-      {/* Tip */}
-      {!isPlaying && progress === 0 && (
-        <p className="text-xs text-muted-foreground text-center">
-          Presiona play para escuchar este artículo (funciona con pantalla bloqueada)
-        </p>
+      {!isPlaying && progress === 0 && !error && (
+        <p className="text-xs text-muted-foreground text-center">Presiona play para escuchar</p>
       )}
 
-      {/* Loading indicator */}
       {isLoading && (
-        <p className="text-xs text-muted-foreground text-center">
-          Generando audio...
-        </p>
+        <p className="text-xs text-muted-foreground text-center">Generando audio...</p>
       )}
     </div>
   );
