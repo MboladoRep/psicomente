@@ -31,32 +31,42 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Validate speed
-    const validSpeed = Math.max(0.5, Math.min(2.0, speed));
+    // Validate and clamp speed
+    const validSpeed = Math.max(0.5, Math.min(2.0, parseFloat(String(speed)) || 1.0));
+
+    console.log('TTS Request:', { textLength: text.length, voice, speed: validSpeed });
 
     // Create SDK instance
     const zai = await ZAI.create();
 
-    // Generate TTS audio
+    // Generate TTS audio - using mp3 for better browser compatibility
     const response = await zai.audio.tts.create({
-      input: text.trim(),
+      input: text.trim().substring(0, 1024), // Ensure max 1024 chars
       voice: voice,
       speed: validSpeed,
-      response_format: 'wav',
+      response_format: 'mp3',
       stream: false,
     });
 
     // Get array buffer from Response object
     const arrayBuffer = await response.arrayBuffer();
+    
+    if (!arrayBuffer || arrayBuffer.byteLength === 0) {
+      throw new Error('Empty audio response');
+    }
+
     const buffer = Buffer.from(new Uint8Array(arrayBuffer));
+
+    console.log('TTS Response:', { bufferSize: buffer.length });
 
     // Return audio as response
     return new NextResponse(buffer, {
       status: 200,
       headers: {
-        'Content-Type': 'audio/wav',
+        'Content-Type': 'audio/mpeg',
         'Content-Length': buffer.length.toString(),
         'Cache-Control': 'public, max-age=3600',
+        'Accept-Ranges': 'bytes',
       },
     });
   } catch (error) {
