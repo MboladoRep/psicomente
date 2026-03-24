@@ -32,13 +32,11 @@ export function ArticleReader({ text, title }: ArticleReaderProps) {
   const { toast } = useToast();
   const [speechRate, setSpeechRate] = useState(1.0);
   const [isLoading, setIsLoading] = useState(false);
-  const [isPlaying, setIsPlaying] useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
-  // Chunks state
   const [chunks, setChunks] = useState<string[]>([]);
   const [currentChunkIndex, setCurrentChunkIndex] = useState(0);
   const audioUrlsRef = useRef<Map<number, string>>(new Map());
@@ -46,14 +44,12 @@ export function ArticleReader({ text, title }: ArticleReaderProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const isInitializedRef = useRef(false);
 
-  // Clean text for TTS
   const cleanText = text
     .replace(/[#*_`]/g, '')
     .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
     .replace(/\n+/g, ' ')
     .trim();
 
-  // Initialize chunks on mount
   useEffect(() => {
     if (cleanText && !isInitializedRef.current) {
       initializeChunks();
@@ -61,7 +57,6 @@ export function ArticleReader({ text, title }: ArticleReaderProps) {
     }
   }, [cleanText]);
 
-  // Initialize chunks from API
   const initializeChunks = async () => {
     if (!cleanText) return;
 
@@ -73,9 +68,7 @@ export function ArticleReader({ text, title }: ArticleReaderProps) {
         body: JSON.stringify({ text: cleanText }),
       });
 
-      if (!response.ok) {
-        throw new Error('Error al procesar el texto');
-      }
+      if (!response.ok) throw new Error('Error al procesar el texto');
 
       const data = await response.json();
       
@@ -90,11 +83,9 @@ export function ArticleReader({ text, title }: ArticleReaderProps) {
     }
   };
 
-  // Generate audio for a specific chunk
   const generateAudioForChunk = async (index: number): Promise<string | null> => {
     if (!chunks[index]) return null;
 
-    // Check if we already have this audio cached
     if (audioUrlsRef.current.has(index)) {
       return audioUrlsRef.current.get(index)!;
     }
@@ -117,9 +108,7 @@ export function ArticleReader({ text, title }: ArticleReaderProps) {
 
       const audioBlob = await response.blob();
       
-      if (audioBlob.size === 0) {
-        throw new Error('Empty audio response');
-      }
+      if (audioBlob.size === 0) throw new Error('Empty audio response');
 
       const audioUrl = URL.createObjectURL(audioBlob);
       audioUrlsRef.current.set(index, audioUrl);
@@ -131,17 +120,13 @@ export function ArticleReader({ text, title }: ArticleReaderProps) {
     }
   };
 
-  // Play a specific chunk
   const playChunk = useCallback(async (index: number) => {
     if (index >= chunks.length) {
       setIsPlaying(false);
       setIsPaused(false);
       setProgress(100);
       setCurrentChunkIndex(0);
-      toast({
-        title: '✅ Finalizado',
-        description: 'Has escuchado todo el artículo',
-      });
+      toast({ title: '✅ Finalizado', description: 'Has escuchado todo el artículo' });
       return;
     }
 
@@ -154,11 +139,7 @@ export function ArticleReader({ text, title }: ArticleReaderProps) {
       setError('No se pudo generar el audio. Inténtalo de nuevo.');
       setIsLoading(false);
       setIsPlaying(false);
-      toast({
-        title: 'Error',
-        description: 'No se pudo generar el audio',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: 'No se pudo generar el audio', variant: 'destructive' });
       return;
     }
 
@@ -179,7 +160,6 @@ export function ArticleReader({ text, title }: ArticleReaderProps) {
     }
   }, [chunks, speechRate, toast]);
 
-  // Handle play/pause
   const handlePlayPause = async () => {
     setError(null);
 
@@ -194,10 +174,7 @@ export function ArticleReader({ text, title }: ArticleReaderProps) {
     if (!isPlaying) {
       setIsPlaying(true);
       setIsPaused(false);
-      toast({
-        title: '🔊 Reproduciendo artículo',
-        description: title || 'Escuchando el contenido',
-      });
+      toast({ title: '🔊 Reproduciendo artículo', description: title || 'Escuchando el contenido' });
       playChunk(currentChunkIndex);
     } else if (audioRef.current) {
       if (audioRef.current.paused) {
@@ -210,7 +187,6 @@ export function ArticleReader({ text, title }: ArticleReaderProps) {
     }
   };
 
-  // Handle stop
   const handleStop = () => {
     if (audioRef.current) {
       audioRef.current.pause();
@@ -223,33 +199,24 @@ export function ArticleReader({ text, title }: ArticleReaderProps) {
     setCurrentChunkIndex(0);
   };
 
-  // Handle previous chunk
   const handlePrevious = () => {
     if (currentChunkIndex > 0 && !isLoading) {
-      if (audioRef.current) {
-        audioRef.current.pause();
-      }
+      if (audioRef.current) audioRef.current.pause();
       playChunk(currentChunkIndex - 1);
     }
   };
 
-  // Handle next chunk
   const handleNext = () => {
     if (currentChunkIndex < chunks.length - 1 && !isLoading) {
-      if (audioRef.current) {
-        audioRef.current.pause();
-      }
+      if (audioRef.current) audioRef.current.pause();
       playChunk(currentChunkIndex + 1);
     }
   };
 
-  // Handle speed change
   const handleRateChange = async (rate: number) => {
     const wasPlaying = isPlaying && !isPaused;
     
-    if (audioRef.current) {
-      audioRef.current.pause();
-    }
+    if (audioRef.current) audioRef.current.pause();
     
     setSpeechRate(rate);
     setIsPlaying(false);
@@ -264,7 +231,6 @@ export function ArticleReader({ text, title }: ArticleReaderProps) {
     }
   };
 
-  // Audio event handlers
   const onTimeUpdate = useCallback(() => {
     if (audioRef.current && audioRef.current.duration) {
       const chunkProgress = (audioRef.current.currentTime / audioRef.current.duration) * 100;
@@ -284,13 +250,11 @@ export function ArticleReader({ text, title }: ArticleReaderProps) {
     }
   }, [currentChunkIndex, chunks.length, playChunk]);
 
-  const onAudioError = useCallback((e: Event) => {
-    console.error('Audio error:', e);
+  const onAudioError = useCallback(() => {
     setError('Error al reproducir el audio');
     setIsPlaying(false);
   }, []);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (audioRef.current) {
@@ -303,13 +267,7 @@ export function ArticleReader({ text, title }: ArticleReaderProps) {
 
   return (
     <div className="bg-muted/50 rounded-lg p-4 space-y-4">
-      <audio
-        ref={audioRef}
-        onTimeUpdate={onTimeUpdate}
-        onEnded={onChunkEnded}
-        onError={onAudioError}
-        preload="auto"
-      />
+      <audio ref={audioRef} onTimeUpdate={onTimeUpdate} onEnded={onChunkEnded} onError={onAudioError} preload="auto" />
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -319,9 +277,7 @@ export function ArticleReader({ text, title }: ArticleReaderProps) {
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" disabled={isLoading}>
-              {speechRate}x
-            </Button>
+            <Button variant="outline" size="sm" disabled={isLoading}>{speechRate}x</Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Velocidad</DropdownMenuLabel>
@@ -362,13 +318,7 @@ export function ArticleReader({ text, title }: ArticleReaderProps) {
         </Button>
 
         <Button size="icon" onClick={handlePlayPause} disabled={isLoading} className="h-12 w-12 rounded-full">
-          {isLoading ? (
-            <Loader2 className="h-5 w-5 animate-spin" />
-          ) : isPlaying && !isPaused ? (
-            <Pause className="h-5 w-5" />
-          ) : (
-            <Play className="h-5 w-5 ml-0.5" />
-          )}
+          {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : isPlaying && !isPaused ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 ml-0.5" />}
         </Button>
 
         <Button variant="outline" size="icon" onClick={handleNext} disabled={currentChunkIndex >= chunks.length - 1 || isLoading} className="h-10 w-10">
