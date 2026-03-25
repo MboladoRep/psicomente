@@ -103,17 +103,26 @@ export function ArticleReader({ text, title }: ArticleReaderProps) {
         }),
       });
 
-      const data = await response.json().catch(() => ({}));
-
-      if (data.needsConfig) {
-        setNeedsConfig(true);
-        throw new Error('Servicio de audio no configurado');
-      }
-
-      if (!response.ok) {
+      // Check content type to determine how to parse response
+      const contentType = response.headers.get('Content-Type') || '';
+      
+      if (contentType.includes('application/json')) {
+        // Error or JSON response
+        const data = await response.json();
+        
+        if (data.needsConfig) {
+          setNeedsConfig(true);
+          throw new Error('Servicio de audio no configurado');
+        }
+        
         throw new Error(data.error || 'Error al generar audio');
       }
 
+      if (!response.ok) {
+        throw new Error('Error al generar audio');
+      }
+
+      // Audio response (MP3)
       const audioBlob = await response.blob();
       
       if (audioBlob.size === 0) throw new Error('Respuesta de audio vacía');
