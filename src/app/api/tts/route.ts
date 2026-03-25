@@ -1,82 +1,136 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// Force this route to be dynamic and server-only
+// Google Cloud Text-to-Speech API
+// Free tier: 4 million characters per month
+// Requires: GOOGLE_TTS_API_KEY environment variable
+
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-// Split text into chunks of maximum 900 characters
-function splitTextIntoChunks(text: string, maxLength = 900): string[] {
-  const chunks: string[] = [];
-  const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
-  
-  let currentChunk = '';
-  for (const sentence of sentences) {
-    if ((currentChunk + sentence).length <= maxLength) {
-      currentChunk += sentence;
-    } else {
-      if (currentChunk) chunks.push(currentChunk.trim());
-      currentChunk = sentence;
-    }
-  }
-  if (currentChunk) chunks.push(currentChunk.trim());
-  
-  return chunks;
+interface TTSRequest {
+  text: string;
+  languageCode?: string;
+  voiceName?: string;
+  audioEncoding?: 'MP3' | 'OGG_OPUS' | 'LINEAR16';
+  speakingRate?: number;
+  pitch?: number;
 }
 
-export async function POST(req: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    const body = await req.json();
-    const { text, voice = 'tongtong', speed = 1.0 } = body;
+    const body: TTSRequest = await request.json();
+    const {
+      text,
+      languageCode = 'es-ES',
+      voiceName = 'es-ES-Standard-A',
+      audioEncoding = 'MP3',
+      speakingRate = 1.0,
+      pitch = 0,
+    } = body;
 
-    if (!text || text.trim().length === 0) {
-      return NextResponse.json({ error: 'Text is required' }, { status: 400 });
+    if (!text) {
+      return NextResponse.json(
+        { error: 'Text is required' },
+        { status: 400 }
+      );
     }
 
-    // Validate speed
-    const validSpeed = Math.max(0.5, Math.min(2.0, parseFloat(String(speed)) || 1.0));
-
-    // Dynamic import to ensure server-side only execution
-    const { default: ZAI } = await import('z-ai-web-dev-sdk');
-    const zai = await ZAI.create();
-
-    // Generate TTS audio
-    const response = await zai.audio.tts.create({
-      input: text.trim().substring(0, 1024),
-      voice: voice,
-      speed: validSpeed,
-      response_format: 'mp3',
-      stream: false,
-    });
-
-    // Get array buffer
-    const arrayBuffer = await response.arrayBuffer();
+    // Check for API key
+    const apiKey = process.env.GOOGLE_TTS_API_KEY;
     
-    if (!arrayBuffer || arrayBuffer.byteLength === 0) {
-      throw new Error('Empty audio response');
+    if (!apiKey) {
+      console.error('GOOGLE_TTS_API_KEY not configured');
+      return NextResponse.json(
+        { 
+          error: 'TTS service not configured. Please add GOOGLE_TTS_API_KEY to environment variables.',
+          needsConfig: true 
+        },
+        { status: 503 }
+      );
     }
 
-    const buffer = Buffer.from(new Uint8Array(arrayBuffer));
+    // Clean and truncate text (Google TTS limit is 5000 characters)
+    const cleanText = text
+      .replace(/[#*_`]/g, '')
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+      .replace(/\n+/g, ' ')
+      .trim()
+      .substring(0, 4900);
 
-    return new NextResponse(buffer, {
-      status: 200,
+    if (!cleanText) {
+      return NextResponse.json(
+        { error: 'No valid text to synthesize' },
+        { status: 400 }
+      );
+    }
+
+    // Call Google Cloud TTS API
+    const response = await fetch(
+      `https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          input: { text: cleanText },
+          voice: {
+            languageCode,
+            name: voiceName,
+            ssmlGender: 'FEMALE',
+          },
+          audioConfig: {
+            audioEncoding,
+            speakingRate: Math.max(0.25, Math.min(4.0, speakingRate)),
+            pitch,
+            effectsProfileId: ['small-bluetooth-speaker-class-device'],
+          },
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('Google TTS API error:', errorData);
+      return NextResponse.json(
+        { error: 'Failed to generate speech', details: errorData },
+        { status: 500 }
+      );
+    }
+
+    const data = await response.json();
+    
+    if (!data.audioContent) {
+      return NextResponse.json(
+        { error: 'No audio content in response' },
+        { status: 500 }
+      );
+    }
+
+    // Convert base64 to buffer
+    const audioBuffer = Buffer.from(data.audioContent, 'base64');
+    
+    return new NextResponse(audioBuffer, {
       headers: {
         'Content-Type': 'audio/mpeg',
-        'Content-Length': buffer.length.toString(),
-        'Cache-Control': 'public, max-age=3600',
+        'Content-Length': audioBuffer.length.toString(),
+        'Cache-Control': 'public, max-age=86400',
       },
     });
+
   } catch (error) {
-    console.error('TTS API Error:', error);
+    console.error('TTS API error:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Error generating speech' },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }
 }
 
-export async function PUT(req: NextRequest) {
+// Endpoint to split text into chunks for long articles
+export async function PUT(request: NextRequest) {
   try {
-    const body = await req.json();
+    const body = await request.json();
     const { text } = body;
 
     if (!text) {
@@ -89,7 +143,21 @@ export async function PUT(req: NextRequest) {
       .replace(/\n+/g, ' ')
       .trim();
 
-    const chunks = splitTextIntoChunks(cleanText, 900);
+    // Split into chunks of ~4500 chars (safe margin under 5000 limit)
+    const maxChars = 4500;
+    const sentences = cleanText.match(/[^.!?]+[.!?]+/g) || [cleanText];
+    const chunks: string[] = [];
+    let currentChunk = '';
+    
+    for (const sentence of sentences) {
+      if ((currentChunk + sentence).length <= maxChars) {
+        currentChunk += sentence;
+      } else {
+        if (currentChunk) chunks.push(currentChunk.trim());
+        currentChunk = sentence;
+      }
+    }
+    if (currentChunk) chunks.push(currentChunk.trim());
 
     return NextResponse.json({
       totalChunks: chunks.length,
@@ -98,5 +166,32 @@ export async function PUT(req: NextRequest) {
   } catch (error) {
     console.error('TTS chunking error:', error);
     return NextResponse.json({ error: 'Error processing text' }, { status: 500 });
+  }
+}
+
+// Endpoint to get available voices
+export async function GET() {
+  const apiKey = process.env.GOOGLE_TTS_API_KEY;
+  
+  if (!apiKey) {
+    return NextResponse.json({
+      voices: [],
+      message: 'GOOGLE_TTS_API_KEY not configured',
+    });
+  }
+
+  try {
+    const response = await fetch(
+      `https://texttospeech.googleapis.com/v1/voices?key=${apiKey}&languageCode=es-ES`
+    );
+    
+    const data = await response.json();
+    
+    return NextResponse.json({
+      voices: data.voices || [],
+    });
+  } catch (error) {
+    console.error('Error fetching voices:', error);
+    return NextResponse.json({ voices: [] });
   }
 }
