@@ -22,6 +22,7 @@ interface I18nContextValue {
   t: (key: string) => string;
   localeNames: Record<Locale, string>;
   locales: Locale[];
+  isMounted: boolean;
 }
 
 const I18nContext = createContext<I18nContextValue | null>(null);
@@ -41,8 +42,9 @@ function getNestedValue(obj: unknown, keys: string[]): string {
 
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>('es');
+  const [isMounted, setIsMounted] = useState(false);
 
-  // Initialize from localStorage on mount
+  // Initialize from localStorage on mount (client-side only)
   useEffect(() => {
     const saved = localStorage.getItem('psicomente_locale');
     if (saved === 'es' || saved === 'en') {
@@ -50,6 +52,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     } else if (navigator.language.startsWith('en')) {
       setLocaleState('en');
     }
+    setIsMounted(true);
   }, []);
 
   // Save locale and update DOM
@@ -70,8 +73,9 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     setLocale,
     t,
     localeNames,
-    locales: ['es', 'en']
-  }), [locale, setLocale, t]);
+    locales: ['es', 'en'],
+    isMounted
+  }), [locale, setLocale, t, isMounted]);
 
   return (
     <I18nContext.Provider value={value}>
@@ -90,7 +94,8 @@ export function useTranslation(): I18nContextValue {
       setLocale: () => {},
       t: (key) => getNestedValue(messages.es, key.split('.')),
       localeNames,
-      locales: ['es', 'en']
+      locales: ['es', 'en'],
+      isMounted: false
     };
   }
   
