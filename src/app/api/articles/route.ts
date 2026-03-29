@@ -9,9 +9,10 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const slug = searchParams.get('slug');
     const category = searchParams.get('category');
-    const limit = parseInt(searchParams.get('limit') || '50');
+    const status = searchParams.get('status'); // 'published', 'draft', or null for all
+    const limit = parseInt(searchParams.get('limit') || '100');
     const offset = parseInt(searchParams.get('offset') || '0');
-    const admin = searchParams.get('admin');
+    const admin = searchParams.get('admin'); // For admin panel
 
     if (slug) {
       const { data, error } = await supabase
@@ -24,7 +25,8 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Artículo no encontrado' }, { status: 404 });
       }
 
-      if (!admin) {
+      // Increment views only if not admin and article is published
+      if (!admin && data.status === 'published') {
         await supabase
           .from('articles')
           .update({ views: (data.views || 0) + 1 })
@@ -34,11 +36,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ article: data });
     }
 
+    // Build query
     let query = supabase
       .from('articles')
       .select('*', { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
+
+    // Filter by status (public only sees published, admin sees all)
+    if (status) {
+      query = query.eq('status', status);
+    } else if (!admin) {
+      // Non-admin requests only get published articles
+      query = query.eq('status', 'published');
+    }
 
     if (category) {
       query = query.eq('category', category);
@@ -61,7 +72,7 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, title, excerpt, content, category, tags, image_url, is_featured } = body;
+    const { id, title, excerpt, content, category, tags, image_url, is_featured, status } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'ID de artículo requerido' }, { status: 400 });
@@ -76,7 +87,9 @@ export async function PUT(request: NextRequest) {
     if (tags !== undefined) updateData.tags = tags;
     if (image_url !== undefined) updateData.image_url = image_url;
     if (is_featured !== undefined) updateData.is_featured = is_featured;
+    if (status !== undefined) updateData.status = status;
 
+    // Generate slug if title changed
     if (title) {
       const slug = title
         .toLowerCase()
