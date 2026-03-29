@@ -263,11 +263,11 @@ TIEMPO_LECTURA: [número estimado de minutos]`;
     slug = `${slug}-${Date.now()}`;
   }
 
-  // Generar imagen única para el artículo
-  console.log('Generating unique image for article...');
-  const imageUrl = await generateArticleImage(title, category.id, topic);
+  // NOTA: No generamos imagen automáticamente
+  // El admin debe aprobar el artículo y asignar una imagen en el panel administrativo
 
-  // Guardar en base de datos
+  // Guardar en base de datos como borrador (status: 'draft')
+  // El admin debe aprobarlo y asignar una imagen antes de publicar
   const { data: article, error } = await supabase
     .from('articles')
     .insert({
@@ -280,7 +280,8 @@ TIEMPO_LECTURA: [número estimado de minutos]`;
       read_time: readTime,
       is_featured: false,
       views: 0,
-      image_url: imageUrl, // Guardar la URL de la imagen generada
+      image_url: null, // No asignar imagen automáticamente - el admin debe elegir
+      status: 'draft', // Guardar como borrador para revisión
     })
     .select()
     .single();
@@ -289,7 +290,7 @@ TIEMPO_LECTURA: [número estimado de minutos]`;
     throw new Error(`Database error: ${error.message}`);
   }
 
-  return { article, title, category: category.name, topic, imageUrl };
+  return { article, title, category: category.name, topic };
 }
 
 // POST - Para cron jobs y llamadas API
@@ -304,8 +305,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       article: result.article,
-      message: `Artículo generado: "${result.title}" (${result.category})`,
-      imageGenerated: !!result.imageUrl,
+      message: `Artículo generado como BORRADOR: "${result.title}" (${result.category}). Ve al panel admin para aprobarlo y asignar una imagen.`,
+      status: 'draft',
     });
 
   } catch (error) {
@@ -329,10 +330,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       article: result.article,
-      message: `Artículo generado: "${result.title}" (${result.category})`,
+      message: `Artículo generado como BORRADOR: "${result.title}" (${result.category}). Ve al panel admin para aprobarlo y asignar una imagen.`,
       topic: result.topic,
       authMethod: auth.reason,
-      imageGenerated: !!result.imageUrl,
+      status: 'draft',
     });
 
   } catch (error) {
