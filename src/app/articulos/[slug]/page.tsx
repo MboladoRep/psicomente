@@ -1,19 +1,25 @@
 import { Metadata } from 'next';
 import ArticleClient from './ArticleClient';
+import { supabase } from '@/lib/supabase';
 
+// Generate metadata for Open Graph sharing - SERVER SIDE
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || 'https://psicomente.vercel.app'}/api/articles?slug=${slug}`, {
-      cache: 'no-store'
-    });
-    
-    const data = await response.json();
-    const article = data.article;
-    
-    if (!article) {
-      return { title: 'Artículo no encontrado | PsicoMente' };
+    // Query Supabase directly on the server
+    const { data: article, error } = await supabase
+      .from('articles')
+      .select('*')
+      .eq('slug', slug)
+      .eq('status', 'published')
+      .single();
+
+    if (error || !article) {
+      return {
+        title: 'Artículo no encontrado | PsicoMente',
+        description: 'PsicoMente - Tu plataforma de bienestar emocional',
+      };
     }
 
     const defaultImages: Record<string, string> = {
@@ -27,30 +33,64 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     };
 
     const imageUrl = article.image_url || defaultImages[article.category] || defaultImages.desarrollo;
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://psicomente.vercel.app';
+    const siteUrl = 'https://psicomente.vercel.app';
+    const articleUrl = `${siteUrl}/articulos/${article.slug}`;
 
     return {
       title: `${article.title} | PsicoMente`,
       description: article.excerpt || article.content?.substring(0, 160),
+      alternates: {
+        canonical: articleUrl,
+      },
       openGraph: {
         title: article.title,
         description: article.excerpt || article.content?.substring(0, 160),
         type: 'article',
-        url: `${siteUrl}/articulos/${article.slug}`,
-        images: [{ url: imageUrl, width: 800, height: 600, alt: article.title }],
+        url: articleUrl,
+        siteName: 'PsicoMente',
+        locale: 'es_ES',
+        images: [
+          {
+            url: imageUrl,
+            width: 1200,
+            height: 630,
+            alt: article.title,
+            type: 'image/jpeg',
+          },
+        ],
         publishedTime: article.created_at,
         authors: ['PsicoMente'],
-        siteName: 'PsicoMente',
       },
       twitter: {
         card: 'summary_large_image',
         title: article.title,
         description: article.excerpt || article.content?.substring(0, 160),
         images: [imageUrl],
+        site: '@psicomente',
       },
     };
+  } catch (error) {
+    console.error('Error generating metadata:', error);
+    return {
+      title: 'Artículo | PsicoMente',
+      description: 'PsicoMente - Tu plataforma de bienestar emocional',
+    };
+  }
+}
+
+// Generate static params for all published articles
+export async function generateStaticParams() {
+  try {
+    const { data: articles } = await supabase
+      .from('articles')
+      .select('slug')
+      .eq('status', 'published');
+
+    return articles?.map((article) => ({
+      slug: article.slug,
+    })) || [];
   } catch {
-    return { title: 'Artículo | PsicoMente' };
+    return [];
   }
 }
 
