@@ -15,6 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://psicomente.vercel.app'),
   title: "PsicoMente | Bienestar Psicológico",
   description: "Plataforma integral de psicología y bienestar emocional. Consultas con IA, recursos educativos, diario emocional, tests psicológicos y técnicas de mindfulness. Versión gratuita y premium disponible.",
   keywords: ["psicología", "bienestar", "salud mental", "terapia online", "mindfulness", "tests psicológicos", "apoyo emocional", "consulta psicológica"],
@@ -32,13 +33,22 @@ export const metadata: Metadata = {
     title: "PsicoMente | Tu Bienestar Mental",
     description: "Consultas psicológicas con IA, recursos educativos y herramientas para tu bienestar emocional",
     type: "website",
-    images: ["/favicon-v2.png"],
+    siteName: "PsicoMente",
+    locale: "es_ES",
+    images: [
+      {
+        url: "https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=1200&q=80",
+        width: 1200,
+        height: 630,
+        alt: "PsicoMente - Bienestar Psicológico",
+      },
+    ],
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: "PsicoMente | Bienestar Psicológico",
     description: "Consultas psicológicas con IA, recursos educativos y herramientas para tu bienestar emocional",
-    images: ["/favicon-v2.png"],
+    images: ["https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=1200&q=80"],
   },
 };
 
