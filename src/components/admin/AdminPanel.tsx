@@ -38,9 +38,7 @@ import {
   Trash2,
   Image as ImageIcon,
   Eye,
-  Check,
-  Clock,
-  Filter
+  X
 } from 'lucide-react';
 import { useUser } from '@/hooks/useUser';
 import { authGet, authPost } from '@/lib/api-client';
@@ -85,7 +83,6 @@ interface Article {
   views: number;
   image_url?: string;
   created_at: string;
-  status?: string;
 }
 
 interface SystemStatus {
@@ -125,8 +122,7 @@ export default function AdminPanel() {
   const [generatingArticle, setGeneratingArticle] = useState(false);
   const [lastArticleResult, setLastArticleResult] = useState<{success: boolean; message: string} | null>(null);
   const [showStatusModal, setShowStatusModal] = useState(false);
-  const [activeTab, setActiveTab] = useState<'users' | 'articles'>('articles'); // Default to articles
-  const [articleFilter, setArticleFilter] = useState<'all' | 'draft' | 'published'>('all');
+  const [activeTab, setActiveTab] = useState<'users' | 'articles'>('users');
   const [systemStatus, setSystemStatus] = useState<SystemStatus>({
     groq: { status: 'loading', message: 'Verificando...' },
     database: { status: 'loading', message: 'Verificando...' },
@@ -172,8 +168,7 @@ export default function AdminPanel() {
 
   const fetchArticles = async () => {
     try {
-      // Fetch all articles for admin (no status filter)
-      const response = await fetch('/api/articles?limit=500&admin=true');
+      const response = await fetch('/api/articles?limit=50&admin=true');
       const data = await response.json();
       
       if (data.articles) {
@@ -195,12 +190,55 @@ export default function AdminPanel() {
     try {
       const response = await authPost('/api/admin', { userId, action: 'makePremium' }, user);
       const data = await response.json();
-      
+
       if (data.success) {
+        toast({
+          title: 'Usuario Premium',
+          description: 'El usuario ahora tiene acceso premium',
+        });
         fetchData();
+      } else {
+        toast({
+          title: 'Error',
+          description: data.error || 'No se pudo actualizar',
+          variant: 'destructive',
+        });
       }
     } catch (error) {
       console.error('Error:', error);
+      toast({
+        title: 'Error',
+        description: 'Error de conexión',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleRemovePremium = async (userId: string) => {
+    try {
+      const response = await authPost('/api/admin', { userId, action: 'removePremium' }, user);
+      const data = await response.json();
+
+      if (data.success) {
+        toast({
+          title: 'Premium removido',
+          description: 'El usuario ya no tiene acceso premium',
+        });
+        fetchData();
+      } else {
+        toast({
+          title: 'Error',
+          description: data.error || 'No se pudo actualizar',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      toast({
+        title: 'Error',
+        description: 'Error de conexión',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -211,6 +249,8 @@ export default function AdminPanel() {
       
       if (data.success) {
         fetchData();
+      } else {
+        console.error('Failed to make admin:', data.error);
       }
     } catch (error) {
       console.error('Error:', error);
@@ -235,7 +275,7 @@ export default function AdminPanel() {
       if (data.success) {
         setLastArticleResult({ success: true, message: data.message });
         toast({
-          title: '✍️ Artículo creado como borrador',
+          title: 'Artículo generado',
           description: data.message,
         });
         fetchArticles();
@@ -309,45 +349,7 @@ export default function AdminPanel() {
           variant: 'destructive',
         });
       }
-    } catch {
-      toast({
-        title: 'Error',
-        description: 'Error de conexión',
-        variant: 'destructive',
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleApproveArticle = async (article: Article) => {
-    setSaving(true);
-    try {
-      const response = await fetch('/api/articles', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: article.id,
-          status: 'published',
-        }),
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        toast({
-          title: '✅ Artículo aprobado',
-          description: 'El artículo ahora es visible para los usuarios',
-        });
-        fetchArticles();
-      } else {
-        toast({
-          title: 'Error',
-          description: data.error || 'Error al aprobar',
-          variant: 'destructive',
-        });
-      }
-    } catch {
+    } catch (error) {
       toast({
         title: 'Error',
         description: 'Error de conexión',
@@ -388,7 +390,7 @@ export default function AdminPanel() {
           variant: 'destructive',
         });
       }
-    } catch {
+    } catch (error) {
       toast({
         title: 'Error',
         description: 'Error de conexión',
@@ -416,7 +418,7 @@ export default function AdminPanel() {
           ? { status: 'ok', message: 'API funcionando correctamente' }
           : { status: 'error', message: groqData.body || groqData.error || 'Error desconocido' }
       }));
-    } catch {
+    } catch (error) {
       setSystemStatus(prev => ({
         ...prev,
         groq: { status: 'error', message: 'Error de conexión' }
@@ -434,7 +436,7 @@ export default function AdminPanel() {
           ? { status: 'ok', message: `Conectado - ${dbData.stats?.totalUsers || 0} usuarios` }
           : { status: 'error', message: dbData.error || 'Error de conexión' }
       }));
-    } catch {
+    } catch (error) {
       setSystemStatus(prev => ({
         ...prev,
         database: { status: 'error', message: 'Error de conexión' }
@@ -450,7 +452,7 @@ export default function AdminPanel() {
           ? { status: 'ok', message: `API Key configurada (${chatData.groqKeyLength} chars)` }
           : { status: 'error', message: 'API Key no configurada' }
       }));
-    } catch {
+    } catch (error) {
       setSystemStatus(prev => ({
         ...prev,
         chat: { status: 'error', message: 'Error de conexión' }
@@ -462,18 +464,8 @@ export default function AdminPanel() {
     return new Date(date).toLocaleDateString('es-ES', {
       day: '2-digit',
       month: 'short',
-      year: 'numeric',
     });
   };
-
-  // Filter articles
-  const filteredArticles = articles.filter(a => {
-    if (articleFilter === 'all') return true;
-    return a.status === articleFilter;
-  });
-
-  const draftCount = articles.filter(a => a.status === 'draft').length;
-  const publishedCount = articles.filter(a => a.status === 'published').length;
 
   if (!isAdmin) {
     return (
@@ -675,7 +667,8 @@ export default function AdminPanel() {
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
             <div className="flex-1">
               <p className="text-sm text-muted-foreground mb-2">
-                Los artículos se generan como <strong>borrador</strong>. Debes aprobarlos y asignarles una imagen antes de que sean visibles para los usuarios.
+                Genera artículos automáticamente usando IA. Los artículos se guardan en la base de datos 
+                y aparecen en la sección de artículos de la web.
               </p>
               {lastArticleResult && (
                 <div className={`flex items-center gap-2 text-sm ${lastArticleResult.success ? 'text-green-600' : 'text-red-600'}`}>
@@ -712,26 +705,20 @@ export default function AdminPanel() {
       {/* Tabs */}
       <div className="flex gap-2 border-b pb-2">
         <Button 
-          variant={activeTab === 'articles' ? 'default' : 'ghost'} 
-          size="sm"
-          onClick={() => setActiveTab('articles')}
-          className="gap-2"
-        >
-          <FileText className="h-4 w-4" />
-          Artículos ({articles.length})
-          {draftCount > 0 && (
-            <Badge variant="secondary" className="ml-1 bg-orange-100 text-orange-700">
-              {draftCount} pendientes
-            </Badge>
-          )}
-        </Button>
-        <Button 
           variant={activeTab === 'users' ? 'default' : 'ghost'} 
           size="sm"
           onClick={() => setActiveTab('users')}
         >
           <Users className="h-4 w-4 mr-2" />
           Usuarios ({recentUsers.length})
+        </Button>
+        <Button 
+          variant={activeTab === 'articles' ? 'default' : 'ghost'} 
+          size="sm"
+          onClick={() => setActiveTab('articles')}
+        >
+          <FileText className="h-4 w-4 mr-2" />
+          Artículos ({articles.length})
         </Button>
       </div>
 
@@ -765,10 +752,21 @@ export default function AdminPanel() {
                       </Badge>
                     )}
                     {u.isPremium ? (
-                      <Badge className="bg-emerald-500 text-xs">
-                        <Crown className="h-3 w-3 mr-1" />
-                        Premium
-                      </Badge>
+                      <div className="flex items-center gap-1">
+                        <Badge className="bg-emerald-500 text-xs">
+                          <Crown className="h-3 w-3 mr-1" />
+                          Premium
+                        </Badge>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleRemovePremium(u.id)}
+                          className="text-orange-600 hover:text-orange-700"
+                          title="Quitar Premium"
+                        >
+                          <XCircle className="h-4 w-4" />
+                        </Button>
+                      </div>
                     ) : (
                       <>
                         <Badge variant="outline" className="text-xs">Gratis</Badge>
@@ -814,89 +812,29 @@ export default function AdminPanel() {
       {activeTab === 'articles' && (
         <Card>
           <CardHeader>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <CardTitle className="text-lg">Gestionar Artículos</CardTitle>
-              
-              {/* Filter buttons */}
-              <div className="flex gap-2">
-                <Button 
-                  size="sm" 
-                  variant={articleFilter === 'all' ? 'default' : 'outline'}
-                  onClick={() => setArticleFilter('all')}
-                >
-                  Todos ({articles.length})
-                </Button>
-                <Button 
-                  size="sm" 
-                  variant={articleFilter === 'draft' ? 'default' : 'outline'}
-                  onClick={() => setArticleFilter('draft')}
-                  className={articleFilter === 'draft' ? 'bg-orange-500 hover:bg-orange-600' : ''}
-                >
-                  <Clock className="h-3 w-3 mr-1" />
-                  Borradores ({draftCount})
-                </Button>
-                <Button 
-                  size="sm" 
-                  variant={articleFilter === 'published' ? 'default' : 'outline'}
-                  onClick={() => setArticleFilter('published')}
-                  className={articleFilter === 'published' ? 'bg-green-500 hover:bg-green-600' : ''}
-                >
-                  <CheckCircle className="h-3 w-3 mr-1" />
-                  Publicados ({publishedCount})
-                </Button>
-              </div>
-            </div>
+            <CardTitle className="text-lg">Gestionar Artículos</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {filteredArticles.map((article) => (
+              {articles.map((article) => (
                 <div 
                   key={article.id}
-                  className={`flex items-start gap-4 p-3 rounded-lg transition-colors ${
-                    article.status === 'draft' 
-                      ? 'bg-orange-50 border border-orange-200' 
-                      : 'bg-muted/50 hover:bg-muted'
-                  }`}
+                  className="flex items-start gap-4 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
                 >
                   {/* Article Image */}
                   <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-muted">
-                    {article.image_url ? (
-                      <img 
-                        src={article.image_url}
-                        alt={article.title}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-muted">
-                        <ImageIcon className="h-6 w-6 text-muted-foreground" />
-                      </div>
-                    )}
+                    <img 
+                      src={article.image_url || defaultImages[article.category] || defaultImages.desarrollo}
+                      alt={article.title}
+                      className="w-full h-full object-cover"
+                    />
                   </div>
                   
                   {/* Article Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-medium text-sm line-clamp-1">{article.title}</h4>
-                          {article.status === 'draft' && (
-                            <Badge variant="secondary" className="bg-orange-100 text-orange-700 text-xs">
-                              <Clock className="h-3 w-3 mr-1" />
-                              Borrador
-                            </Badge>
-                          )}
-                          {article.status === 'published' && (
-                            <Badge variant="secondary" className="bg-green-100 text-green-700 text-xs">
-                              <CheckCircle className="h-3 w-3 mr-1" />
-                              Publicado
-                            </Badge>
-                          )}
-                          {!article.image_url && (
-                            <Badge variant="secondary" className="bg-yellow-100 text-yellow-700 text-xs">
-                              Sin imagen
-                            </Badge>
-                          )}
-                        </div>
+                        <h4 className="font-medium text-sm line-clamp-1">{article.title}</h4>
                         <p className="text-xs text-muted-foreground line-clamp-1">
                           {article.excerpt || 'Sin descripción'}
                         </p>
@@ -916,20 +854,6 @@ export default function AdminPanel() {
                       
                       {/* Actions */}
                       <div className="flex items-center gap-1">
-                        {/* Approve button (only for drafts) */}
-                        {article.status === 'draft' && (
-                          <Button 
-                            size="sm" 
-                            variant="default"
-                            onClick={() => handleApproveArticle(article)}
-                            disabled={saving}
-                            className="bg-green-500 hover:bg-green-600"
-                            title="Aprobar y publicar"
-                          >
-                            <Check className="h-4 w-4 mr-1" />
-                            Aprobar
-                          </Button>
-                        )}
                         <Button 
                           size="sm" 
                           variant="ghost"
@@ -953,9 +877,9 @@ export default function AdminPanel() {
                   </div>
                 </div>
               ))}
-              {filteredArticles.length === 0 && (
+              {articles.length === 0 && (
                 <p className="text-center text-muted-foreground py-8">
-                  No hay artículos en esta categoría
+                  No hay artículos. Genera uno nuevo arriba.
                 </p>
               )}
             </div>
@@ -994,14 +918,6 @@ export default function AdminPanel() {
               </div>
             )}
             
-            {/* No image warning */}
-            {!editForm.image_url && (
-              <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-700">
-                <ImageIcon className="h-4 w-4 inline mr-2" />
-                Este artículo no tiene imagen. Añade una URL de imagen antes de publicar.
-              </div>
-            )}
-            
             {/* Image URL */}
             <div className="space-y-2">
               <Label htmlFor="image_url" className="flex items-center gap-2">
@@ -1015,7 +931,7 @@ export default function AdminPanel() {
                 onChange={(e) => setEditForm({ ...editForm, image_url: e.target.value })}
               />
               <p className="text-xs text-muted-foreground">
-                Puedes usar Unsplash, Pexels o cualquier URL de imagen directa
+                Deja vacío para usar la imagen por defecto de la categoría
               </p>
             </div>
             
@@ -1110,7 +1026,7 @@ export default function AdminPanel() {
               Eliminar Artículo
             </DialogTitle>
             <DialogDescription>
-              ¿Estás seguro de que quieres eliminar este artículo?
+              ¿Estás seguro de que quieres eliminar el artículo?
             </DialogDescription>
           </DialogHeader>
           
