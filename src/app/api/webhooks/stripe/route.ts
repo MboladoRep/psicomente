@@ -146,7 +146,7 @@ export async function POST(request: NextRequest) {
       case 'customer.subscription.deleted': {
         const subscription = event.data.object as Stripe.Subscription;
         let email = subscription.metadata?.email;
-        
+
         if (!email && subscription.customer) {
           try {
             const customer = await stripe.customers.retrieve(subscription.customer as string);
@@ -158,20 +158,17 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        if (email && supabase) {
-          const { error } = await supabase
-            .from('users')
-            .update({
-              ispremium: false,
-              premiumsince: null,
-            })
-            .eq('email', email);
+        // NOTA: NO quitamos el premium automáticamente cuando se cancela la suscripción.
+        // Esto permite que el admin mantenga usuarios premium para pruebas.
+        // El admin puede quitar el premium manualmente desde el panel de administración.
+        // Solo registramos que la suscripción fue cancelada.
+        console.log(`ℹ️ Suscripción cancelada para ${email} - Premium NO removido automáticamente`);
 
-          if (error) {
-            console.error('❌ Error removing premium:', error);
-          } else {
-            console.log(`❌ Usuario ${email} ya no es Premium`);
-          }
+        // Opcionalmente podemos marcar que ya no tiene suscripción activa
+        // pero mantener el premium para que el admin lo gestione
+        if (email && supabase) {
+          // Solo registramos en logs, no quitamos premium
+          console.log(`ℹ️ Usuario ${email} - Suscripción cancelada pero premium mantenido para gestión manual`);
         }
         break;
       }
