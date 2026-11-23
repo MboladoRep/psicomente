@@ -1,13 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
-import ZAI from 'z-ai-web-dev-sdk';
+import { groqChat, GroqError } from '@/lib/groq';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
-
-// Groq API configuration
-const GROQ_API_KEY = process.env.GROQ_API_KEY;
-const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
 // Categorías de artículos
 const CATEGORIES = [
@@ -19,59 +15,6 @@ const CATEGORIES = [
   { id: 'mindfulness', name: 'Mindfulness', topics: ['meditación', 'atención plena', 'respiración', 'consciencia corporal', 'compasión'] },
   { id: 'desarrollo', name: 'Desarrollo Personal', topics: ['metas', 'hábitos', 'productividad', 'inteligencia emocional', 'resiliencia'] },
 ];
-
-// Prompts de imagen únicos por categoría
-const IMAGE_PROMPTS: Record<string, string[]> = {
-  ansiedad: [
-    'calm ocean waves at sunset, peaceful meditation, serenity, mindfulness, soft colors, therapeutic environment',
-    'person meditating in nature, zen garden, tranquility, mental peace, soft natural lighting',
-    'gentle mountain stream, forest path, peaceful solitude, natural therapy, calming atmosphere',
-    'soft clouds at dawn, peaceful sky, hope and renewal, gentle morning light',
-    'quiet lake reflection, stillness, inner peace, meditation spot, natural serenity',
-  ],
-  depresion: [
-    'sunrise over mountains, hope, new beginning, warm light breaking through clouds',
-    'single flower blooming in spring, resilience, growth, natural beauty, soft focus',
-    'path through misty forest, journey of healing, gentle light ahead, peaceful walk',
-    'rainbow after storm, hope emerging, natural wonder, beautiful sky, optimism',
-    'warm candlelight in dark room, hope in darkness, gentle glow, comfort and peace',
-  ],
-  relaciones: [
-    'two hands holding, human connection, warmth, trust, soft natural light',
-    'people silhouettes watching sunset together, companionship, shared moment, beautiful horizon',
-    'family walking on beach, togetherness, bonding, golden hour, peaceful scene',
-    'friends around campfire, connection, sharing stories, warm atmosphere, community',
-    'bridge connecting two places, symbol of connection, peaceful landscape, gentle stream below',
-  ],
-  autoestima: [
-    'person standing on mountain peak at sunrise, achievement, self-confidence, magnificent view',
-    'mirror reflecting beautiful nature, self-reflection, inner beauty, peaceful surroundings',
-    'butterfly emerging from cocoon, transformation, growth, new beginnings, delicate beauty',
-    'person looking at reflection in calm water, self-discovery, peaceful lake, meditation',
-    'flower opening to sun, self-expression, blooming, natural growth, gentle light',
-  ],
-  estres: [
-    'calm zen garden with rake patterns, mindfulness, peaceful meditation space, japanese aesthetic',
-    'person relaxing in hammock, rest, peaceful afternoon, gentle breeze, outdoor tranquility',
-    'peaceful spa atmosphere, candles and stones, relaxation, wellness, soft lighting',
-    'gentle rain on window, cozy atmosphere, peaceful rest, indoor comfort, relaxation',
-    'tea cup with steam rising, mindful moment, peaceful break, warm atmosphere, self-care',
-  ],
-  mindfulness: [
-    'lotus flower floating on calm water, meditation, spiritual awakening, peaceful pond',
-    'person in lotus position at sunrise, meditation practice, inner peace, beautiful nature',
-    'singing bowl with mallet, sound healing, mindfulness practice, peaceful setting',
-    'yoga mat in nature, mindful practice, outdoor meditation, peaceful morning light',
-    'mala beads on natural surface, meditation tools, spiritual practice, peaceful textures',
-  ],
-  desarrollo: [
-    'path winding up mountain, personal journey, growth, achievement, inspiring landscape',
-    'compass on old map, direction, purpose, self-discovery, adventure awaits',
-    'seedling growing from soil, potential, growth mindset, new beginnings, nurturing',
-    'open book with light rays, knowledge, learning, wisdom, enlightenment',
-    'lighthouse on cliff, guidance, direction, purpose, coastal beauty, beacon of hope',
-  ],
-};
 
 function generateSlug(title: string): string {
   return title
@@ -91,92 +34,35 @@ function getRandomTopic(category: typeof CATEGORIES[0]) {
   return category.topics[Math.floor(Math.random() * category.topics.length)];
 }
 
-function getRandomImagePrompt(categoryId: string): string {
-  const prompts = IMAGE_PROMPTS[categoryId] || IMAGE_PROMPTS.desarrollo;
-  return prompts[Math.floor(Math.random() * prompts.length)];
-}
-
 /**
- * Verifica si la solicitud está autorizada
+ * SEGURIDAD: la generación de artículos gasta créditos de Groq.
+ * Solo se aceptan peticiones autenticadas con el secreto:
+ *
+ *   Authorization: Bearer <CRON_SECRET>
+ *
+ * Vercel envía esa cabecera automáticamente en los cron jobs cuando la
+ * variable CRON_SECRET está configurada en el proyecto. El panel de
+ * administración también puede enviarla de forma manual.
  */
-function isAuthorized(request: NextRequest): { authorized: boolean; reason: string } {
-  const authHeader = request.headers.get('authorization');
+function verifyCronSecret(request: NextRequest): { authorized: boolean; reason: string } {
   const cronSecret = process.env.CRON_SECRET;
-  const vercelCron = request.headers.get('x-vercel-cron');
+  const authHeader = request.headers.get('authorization') || '';
 
-  if (authHeader === 'Bearer vercel-cron') {
-    return { authorized: true, reason: 'Vercel Cron Job' };
+  if (!cronSecret) {
+    return {
+      authorized: false,
+      reason: 'No autorizado: falta configurar la variable CRON_SECRET en las variables de entorno de Vercel. Sin ella no se pueden generar artículos.',
+    };
   }
 
-  if (vercelCron === 'true') {
-    return { authorized: true, reason: 'Vercel Cron Header' };
-  }
-
-  if (cronSecret && authHeader === `Bearer ${cronSecret}`) {
+  if (authHeader === `Bearer ${cronSecret}`) {
     return { authorized: true, reason: 'CRON_SECRET' };
   }
 
-  return { authorized: true, reason: 'Testing mode' };
-}
-
-/**
- * Genera una imagen única para el artículo usando IA
- */
-async function generateArticleImage(title: string, categoryId: string, topic: string): Promise<string | null> {
-  try {
-    const zai = await ZAI.create();
-
-    // Crear un prompt único combinando el tema y elementos visuales apropiados
-    const basePrompt = getRandomImagePrompt(categoryId);
-    const imagePrompt = `${basePrompt}, psychology article about ${topic}, calming therapeutic style, soft pastel colors, professional mental health aesthetic, high quality, 4k`;
-
-    console.log(`Generating image with prompt: ${imagePrompt}`);
-
-    const response = await zai.images.generations.create({
-      prompt: imagePrompt,
-      size: '1024x1024',
-    });
-
-    if (response.data && response.data[0]?.base64) {
-      // Guardar la imagen en Supabase Storage
-      const base64Data = response.data[0].base64;
-      const buffer = Buffer.from(base64Data, 'base64');
-      const filename = `articles/${categoryId}-${Date.now()}.png`;
-
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('images')
-        .upload(filename, buffer, {
-          contentType: 'image/png',
-          upsert: true,
-        });
-
-      if (uploadError) {
-        console.error('Error uploading image:', uploadError);
-        // Si falla la subida, devolver null y usar imagen por defecto
-        return null;
-      }
-
-      // Obtener URL pública
-      const { data: urlData } = supabase.storage
-        .from('images')
-        .getPublicUrl(filename);
-
-      return urlData.publicUrl;
-    }
-
-    return null;
-  } catch (error) {
-    console.error('Error generating image:', error);
-    return null;
-  }
+  return { authorized: false, reason: 'No autorizado: se requiere la clave CRON_SECRET.' };
 }
 
 async function generateArticle() {
-  // Validar API key
-  if (!GROQ_API_KEY) {
-    throw new Error('GROQ_API_KEY not configured');
-  }
-
   // Validar Supabase
   if (!supabase) {
     throw new Error('Supabase not configured');
@@ -188,7 +74,7 @@ async function generateArticle() {
 
   console.log(`Generating article about "${topic}" in category "${category.name}"...`);
 
-  // Generar artículo con IA
+  // Generar artículo con IA (con cadena de modelos de respaldo)
   const prompt = `Escribe un artículo profesional de psicología sobre "${topic}" dentro de la categoría "${category.name}".
 
 El artículo debe:
@@ -205,40 +91,20 @@ EXTRACTO: [resumen de 2-3 frases, máximo 200 caracteres]
 CONTENIDO: [artículo completo con párrafos bien estructurados]
 TIEMPO_LECTURA: [número estimado de minutos]`;
 
-  const response = await fetch(GROQ_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${GROQ_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
-      messages: [
-        {
-          role: 'system',
-          content: 'Eres un psicólogo profesional y escritor de artículos de divulgación psicológica. Escribe contenido de alta calidad, basado en evidencia, con un tono accesible y cálido.'
-        },
-        {
-          role: 'user',
-          content: prompt
-        }
-      ],
-      temperature: 0.8,
-      max_tokens: 2000,
-    }),
+  const { content } = await groqChat({
+    messages: [
+      {
+        role: 'system',
+        content: 'Eres un psicólogo profesional y escritor de artículos de divulgación psicológica. Escribe contenido de alta calidad, basado en evidencia, con un tono accesible y cálido. Respeta EXACTAMENTE el formato de respuesta solicitado, incluidas las etiquetas TÍTULO:, EXTRACTO:, CONTENIDO: y TIEMPO_LECTURA:.',
+      },
+      {
+        role: 'user',
+        content: prompt
+      }
+    ],
+    maxTokens: 3500,
+    temperature: 0.8,
   });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Groq API error: ${errorText}`);
-  }
-
-  const data = await response.json();
-  const content = data.choices?.[0]?.message?.content;
-
-  if (!content) {
-    throw new Error('No content generated from AI');
-  }
 
   // Parsear la respuesta
   const titleMatch = content.match(/TÍTULO:\s*(.+)/);
@@ -263,8 +129,8 @@ TIEMPO_LECTURA: [número estimado de minutos]`;
     slug = `${slug}-${Date.now()}`;
   }
 
-  // NOTA: No generamos imagen automáticamente
-  // El admin debe aprobar el artículo y asignar una imagen en el panel administrativo
+  // NOTA: No generamos imagen automáticamente.
+  // El admin debe aprobar el artículo y asignar una imagen en el panel administrativo.
 
   // Guardar en base de datos como borrador (status: 'draft')
   // El admin debe aprobarlo y asignar una imagen antes de publicar
@@ -293,13 +159,18 @@ TIEMPO_LECTURA: [número estimado de minutos]`;
   return { article, title, category: category.name, topic };
 }
 
-// POST - Para cron jobs y llamadas API
+// POST - Para cron jobs y llamadas autenticadas
 export async function POST(request: NextRequest) {
+  const auth = verifyCronSecret(request);
+
+  if (!auth.authorized) {
+    console.warn('[Articles Generate] Petición rechazada:', auth.reason);
+    return NextResponse.json({ success: false, error: auth.reason }, { status: 401 });
+  }
+
+  console.log(`[Articles Generate] Autorizado (${auth.reason})`);
+
   try {
-    const auth = isAuthorized(request);
-
-    console.log(`Article generation requested. Auth: ${auth.reason}`);
-
     const result = await generateArticle();
 
     return NextResponse.json({
@@ -310,21 +181,29 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Generate article error:', error);
+    console.error('[Articles Generate] Error:', error);
+    const detail = error instanceof GroqError
+      ? error.message.slice(0, 300)
+      : (error instanceof Error ? error.message : 'Unknown error');
     return NextResponse.json({
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: `Error al generar el artículo: ${detail}`,
     }, { status: 500 });
   }
 }
 
-// GET - Para probar desde el navegador
+// GET - Para los cron jobs de Vercel (envían Authorization: Bearer CRON_SECRET)
 export async function GET(request: NextRequest) {
+  const auth = verifyCronSecret(request);
+
+  if (!auth.authorized) {
+    console.warn('[Articles Generate] Petición rechazada:', auth.reason);
+    return NextResponse.json({ success: false, error: auth.reason }, { status: 401 });
+  }
+
+  console.log(`[Articles Generate] Autorizado (${auth.reason})`);
+
   try {
-    const auth = isAuthorized(request);
-
-    console.log(`Article generation requested via GET. Auth: ${auth.reason}`);
-
     const result = await generateArticle();
 
     return NextResponse.json({
@@ -337,10 +216,13 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Generate article error:', error);
+    console.error('[Articles Generate] Error:', error);
+    const detail = error instanceof GroqError
+      ? error.message.slice(0, 300)
+      : (error instanceof Error ? error.message : 'Unknown error');
     return NextResponse.json({
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: `Error al generar el artículo: ${detail}`,
     }, { status: 500 });
   }
 }
