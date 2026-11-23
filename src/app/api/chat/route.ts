@@ -1,20 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit, getClientIdentifier, RATE_LIMIT_CONFIGS } from '@/lib/rate-limit';
+import { groqChat, GroqError } from '@/lib/groq';
 
 export const maxDuration = 30;
 
-// Groq API configuration
-const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+// Prompts del sistema por categoría
+const CATEGORY_PROMPTS: Record<string, string> = {
+  ansiedad: 'Eres un psicólogo especializado en trastornos de ansiedad. Proporciona apoyo emocional, técnicas de manejo de ansiedad y orientación práctica.',
+  depresion: 'Eres un psicólogo especializado en depresión. Ofrece apoyo compasivo, estrategias de afrontamiento y recursos para el bienestar emocional.',
+  relaciones: 'Eres un psicólogo especializado en relaciones interpersonales y de pareja. Ayuda con comunicación, conflictos y vínculos saludables.',
+  autoestima: 'Eres un psicólogo especializado en autoestima y desarrollo personal. Ayuda a fortalecer la autoconfianza y el autoconocimiento.',
+  estres: 'Eres un psicólogo especializado en manejo del estrés. Ofrece técnicas de relajación, organización y equilibrio vida-trabajo.',
+  duelo: 'Eres un psicólogo especializado en procesos de duelo. Proporciona apoyo emocional y acompañamiento en el proceso de pérdida.',
+  general: 'Eres un psicólogo profesional empático y comprensivo. Ofrece orientación, apoyo emocional y recursos para el bienestar mental.',
+};
+
+const SYSTEM_RULES = `
+
+IMPORTANTE:
+- Siempre muestra empatía y comprensión
+- Ofrece consejos prácticos y alcanzables
+- Recomienda buscar ayuda profesional si la situación lo requiere
+- No diagnostiques condiciones médicas
+- Mantén un tono cálido y profesional
+- Respuestas concisas pero completas (máximo 3-4 párrafos)
+- Si el usuario expresa pensamientos de autolesión, recomienda urgentemente buscar ayuda profesional y proporciona números de emergencia`;
 
 export async function POST(request: NextRequest) {
   try {
-    // Read API key at runtime to ensure it's available
     const GROQ_API_KEY = process.env.GROQ_API_KEY;
 
     console.log('[Chat API] Request received');
-    console.log('[Chat API] GROQ_API_KEY exists:', !!GROQ_API_KEY);
 
-    // RATE LIMITING: Check if client has exceeded rate limit
+    // RATE LIMITING: comprobar si el cliente ha excedido el límite
     const clientId = getClientIdentifier(request);
     const rateLimitResult = checkRateLimit(clientId, RATE_LIMIT_CONFIGS.chat);
 
@@ -37,7 +55,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate API key exists
+    // Validar que la API key existe
     if (!GROQ_API_KEY) {
       console.error('[Chat API] GROQ_API_KEY not configured in environment variables');
       return NextResponse.json(
@@ -50,7 +68,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Parse request body safely
+    // Parsear el cuerpo de la petición con seguridad
     let body;
     try {
       body = await request.json();
@@ -63,121 +81,91 @@ export async function POST(request: NextRequest) {
     }
     const { message, category, history } = body;
 
-    if (!message) {
+    if (!message || typeof message !== 'string') {
       return NextResponse.json(
         { error: 'Message is required', success: false },
         { status: 400 }
       );
     }
 
-    // Build system prompt based on category
-    const categoryPrompts: Record<string, string> = {
-      ansiedad: 'Eres un psicólogo especializado en trastornos de ansiedad. Proporciona apoyo emocional, técnicas de manejo de ansiedad y orientación práctica.',
-      depresion: 'Eres un psicólogo especializado en depresión. Ofrece apoyo compasivo, estrategias de afrontamiento y recursos para el bienestar emocional.',
-      relaciones: 'Eres un psicólogo especializado en relaciones interpersonales y de pareja. Ayuda con comunicación, conflictos y vínculos saludables.',
-      autoestima: 'Eres un psicólogo especializado en autoestima y desarrollo personal. Ayuda a fortalecer la autoconfianza y el autoconocimiento.',
-      estres: 'Eres un psicólogo especializado en manejo del estrés. Ofrece técnicas de relajación, organización y equilibrio vida-trabajo.',
-      duelo: 'Eres un psicólogo especializado en procesos de duelo. Proporciona apoyo emocional y acompañamiento en el proceso de pérdida.',
-      general: 'Eres un psicólogo profesional empático y comprensivo. Ofrece orientación, apoyo emocional y recursos para el bienestar mental.',
-    };
+    const systemPrompt = CATEGORY_PROMPTS[category] || CATEGORY_PROMPTS.general;
 
-    const systemPrompt = categoryPrompts[category] || categoryPrompts.general;
-
-    // Build messages array
+    // Construir el array de mensajes
     const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
       {
         role: 'system',
-        content: `${systemPrompt}
-
-IMPORTANTE:
-- Siempre muestra empatía y comprensión
-- Ofrece consejos prácticos y alcanzables
-- Recomienda buscar ayuda profesional si la situación lo requiere
-- No diagnostiques condiciones médicas
-- Mantén un tono cálido y profesional
-- Respuestas concisas pero completas (máximo 3-4 párrafos)
-- Si el usuario expresa pensamientos de autolesión, recomienda urgentemente buscar ayuda profesional y proporciona números de emergencia`
+        content: `${systemPrompt}${SYSTEM_RULES}`,
       }
     ];
 
-    // Add conversation history
+    // Añadir historial de conversación (solo roles válidos para no rechazar la petición)
     if (history && Array.isArray(history)) {
       for (const msg of history.slice(-6)) {
-        messages.push({
-          role: msg.role,
-          content: msg.content
-        });
+        if (msg && typeof msg.content === 'string' && msg.content.trim()) {
+          const role: 'user' | 'assistant' = msg.role === 'assistant' ? 'assistant' : 'user';
+          messages.push({ role, content: msg.content });
+        }
       }
     }
 
-    // Add current message
+    // Añadir el mensaje actual
     messages.push({
       role: 'user',
       content: message
     });
 
-    // Call Groq API
-    console.log('[Chat API] Calling Groq API with model llama-3.3-70b-versatile');
-
-    const response = await fetch(GROQ_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${GROQ_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
+    // Llamar a Groq con cadena de modelos de respaldo
+    try {
+      const { content, model } = await groqChat({
         messages,
+        maxTokens: 600,
         temperature: 0.7,
-        max_tokens: 600,
-      }),
-    });
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[Chat API] Groq API error:', response.status, errorText);
+      console.log(`[Chat API] Respuesta generada con el modelo: ${model}`);
 
-      // Provide specific error messages based on status
-      if (response.status === 401) {
+      // Devolver respuesta con cabeceras de rate limit
+      return NextResponse.json({
+        response: content,
+        success: true,
+        model,
+      }, {
+        headers: {
+          'X-RateLimit-Limit': String(rateLimitResult.limit),
+          'X-RateLimit-Remaining': String(rateLimitResult.remaining),
+          'X-RateLimit-Reset': String(rateLimitResult.resetTime),
+        }
+      });
+    } catch (groqError) {
+      if (groqError instanceof GroqError) {
+        console.error('[Chat API] Groq error:', groqError.status, groqError.message);
+
+        if (groqError.status === 503) {
+          return NextResponse.json(
+            { error: 'El servicio de chat no está configurado. Falta la API key de Groq.', success: false, errorCode: 'MISSING_API_KEY' },
+            { status: 503 }
+          );
+        }
+        if (groqError.status === 401 || groqError.status === 403) {
+          return NextResponse.json(
+            { error: 'Error de autenticación con el servicio de IA. Contacta al administrador.', success: false, errorCode: 'AUTH_ERROR' },
+            { status: 500 }
+          );
+        }
+        if (groqError.status === 429) {
+          return NextResponse.json(
+            { error: 'El servicio de IA está temporalmente saturado. Espera un momento e intenta de nuevo.', success: false, errorCode: 'RATE_LIMITED' },
+            { status: 429 }
+          );
+        }
+
         return NextResponse.json(
-          { error: 'Error de autenticación con el servicio de IA. Contacta al administrador.', success: false, errorCode: 'AUTH_ERROR' },
+          { error: 'Error al conectar con el servicio de IA. Por favor, intenta de nuevo.', success: false, detail: groqError.message.slice(0, 200) },
           { status: 500 }
         );
       }
-      if (response.status === 429) {
-        return NextResponse.json(
-          { error: 'El servicio de IA está temporalmente saturado. Espera un momento e intenta de nuevo.', success: false, errorCode: 'RATE_LIMITED' },
-          { status: 429 }
-        );
-      }
-
-      return NextResponse.json(
-        { error: 'Error al conectar con el servicio de IA. Por favor, intenta de nuevo.', success: false },
-        { status: 500 }
-      );
+      throw groqError;
     }
-
-    const data = await response.json();
-    const responseContent = data.choices?.[0]?.message?.content;
-
-    if (!responseContent) {
-      return NextResponse.json(
-        { error: 'No se pudo generar una respuesta. Por favor, intenta de nuevo.', success: false },
-        { status: 500 }
-      );
-    }
-
-    // Return response with rate limit headers
-    return NextResponse.json({ 
-      response: responseContent,
-      success: true 
-    }, {
-      headers: {
-        'X-RateLimit-Limit': String(rateLimitResult.limit),
-        'X-RateLimit-Remaining': String(rateLimitResult.remaining),
-        'X-RateLimit-Reset': String(rateLimitResult.resetTime),
-      }
-    });
 
   } catch (error) {
     console.error('[Chat API] Unexpected error:', error);
