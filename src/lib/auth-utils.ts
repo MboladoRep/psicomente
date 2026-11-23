@@ -1,8 +1,13 @@
 import { NextRequest } from 'next/server';
 import { supabase } from './supabase';
 
-// Admin emails for fallback authorization (when DB role not available)
-const ADMIN_EMAILS = ['m.bolado79@gmail.com'];
+// Emails de administrador para autorización de respaldo (cuando no hay rol en la BD).
+// Configurables con la variable de entorno ADMIN_EMAILS (separados por comas).
+// El valor por defecto mantiene el funcionamiento actual del panel.
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || 'm.bolado79@gmail.com')
+  .split(',')
+  .map((e) => e.trim().toLowerCase())
+  .filter(Boolean);
 
 export interface AuthResult {
   authorized: boolean;
@@ -39,7 +44,7 @@ export async function verifyAdminAccess(request: NextRequest): Promise<AuthResul
     }
 
     // Method 3: Check hardcoded admin emails (fallback)
-    if (ADMIN_EMAILS.includes(emailToCheck)) {
+    if (ADMIN_EMAILS.includes(emailToCheck.toLowerCase())) {
       return { authorized: true, email: emailToCheck, role: 'admin', source: 'fallback' };
     }
 
