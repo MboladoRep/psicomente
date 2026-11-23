@@ -168,11 +168,6 @@
     "contact": "Contacto",
     "rights": "Todos los derechos reservados"
   },
-  "pricing": {
-    "title": "Planes y Precios",
-    "subtitle": "Elige el plan que mejor se adapte a tus necesidades",
-    "getPremium": "Obtener Premium"
-  },
   "auth": {
     "login": "Iniciar Sesión",
     "signup": "Crear Cuenta",
