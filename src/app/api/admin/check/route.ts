@@ -3,8 +3,12 @@ import { supabase } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
 
-// Admin emails que siempre tienen acceso (fallback)
-const ADMIN_EMAILS = ['m.bolado79@gmail.com'];
+// Emails de administrador con acceso garantizado (fallback).
+// Configurables con la variable de entorno ADMIN_EMAILS (separados por comas).
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || 'm.bolado79@gmail.com')
+  .split(',')
+  .map((e) => e.trim().toLowerCase())
+  .filter(Boolean);
 
 // GET - Verificar si el usuario actual es admin
 export async function GET(request: NextRequest) {
@@ -20,7 +24,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Fallback: si el email está en la lista de admins, tiene acceso
-    if (ADMIN_EMAILS.includes(email)) {
+    if (ADMIN_EMAILS.includes(email.toLowerCase())) {
       return NextResponse.json({ isAdmin: true, role: 'admin', source: 'fallback' });
     }
 
