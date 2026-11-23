@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { checkRateLimit, getClientIdentifier, RATE_LIMIT_CONFIGS } from '@/lib/rate-limit';
 
 // Google Cloud Text-to-Speech API
 // Free tier: 4 million characters per month
@@ -32,6 +33,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Text is required' },
         { status: 400 }
+      );
+    }
+
+    // RATE LIMITING: la síntesis de audio tiene coste, se limita por IP
+    const clientId = getClientIdentifier(request);
+    const rateLimitResult = checkRateLimit(clientId, RATE_LIMIT_CONFIGS.tts);
+
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        {
+          error: 'Has excedido el límite de peticiones de audio. Espera un momento.',
+          success: false,
+        },
+        { status: 429 }
       );
     }
 
@@ -90,11 +105,28 @@ export async function POST(request: NextRequest) {
     );
 
     if (!response.ok) {
-      const errorData = await response.json();
-      console.error('Google TTS API error:', errorData);
+      const errorText = await response.text();
+      let errorData: Record<string, unknown> = {};
+      try {
+        errorData = JSON.parse(errorText);
+      } catch {
+        // respuesta no JSON
+      }
+      console.error('Google TTS API error:', response.status, errorText.slice(0, 300));
+
+      const googleError = errorData as { error?: { status?: string; code?: number; message?: string } };
+      const isPermissionDenied =
+        response.status === 403 || googleError.error?.status === 'PERMISSION_DENIED';
+
       return NextResponse.json(
-        { error: 'Failed to generate speech', details: errorData },
-        { status: 500 }
+        {
+          error: isPermissionDenied
+            ? 'El servicio de audio no tiene permisos: revisa GOOGLE_TTS_API_KEY y que la API "Cloud Text-to-Speech" esté activada en tu proyecto de Google Cloud (con facturación o cuota gratuita vigente).'
+            : googleError.error?.message || 'Failed to generate speech',
+          success: false,
+          errorCode: isPermissionDenied ? 'TTS_PERMISSION_DENIED' : 'TTS_ERROR',
+        },
+        { status: 502 }
       );
     }
 
