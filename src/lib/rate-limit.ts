@@ -146,4 +146,10 @@ export const RATE_LIMIT_CONFIGS = {
     windowMs: 60 * 60 * 1000, // 1 hour
     keyPrefix: 'article',
   },
+  // TTS: 40 requests per minute (la síntesis de audio tiene coste en Google)
+  tts: {
+    maxRequests: 40,
+    windowMs: 60 * 1000,
+    keyPrefix: 'tts',
+  },
 };
