@@ -120,6 +120,22 @@ export default function AdminPanel() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [generatingArticle, setGeneratingArticle] = useState(false);
+  const [cronSecret, setCronSecret] = useState('');
+
+  // La clave de generación se guarda solo en este navegador (sessionStorage)
+  useEffect(() => {
+    const saved = sessionStorage.getItem('psicomente_cron_secret');
+    if (saved) setCronSecret(saved);
+  }, []);
+
+  const handleCronSecretChange = (value: string) => {
+    setCronSecret(value);
+    try {
+      sessionStorage.setItem('psicomente_cron_secret', value);
+    } catch (e) {
+      console.warn('No se pudo guardar la clave en sessionStorage:', e);
+    }
+  };
   const [lastArticleResult, setLastArticleResult] = useState<{success: boolean; message: string} | null>(null);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'users' | 'articles'>('users');
@@ -258,6 +274,15 @@ export default function AdminPanel() {
   };
 
   const handleGenerateArticle = async () => {
+    if (!cronSecret.trim()) {
+      toast({
+        title: 'Falta la clave de generación',
+        description: 'Escribe el valor de CRON_SECRET en el campo de arriba (es la misma variable configurada en Vercel).',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setGeneratingArticle(true);
     setLastArticleResult(null);
     
@@ -266,7 +291,7 @@ export default function AdminPanel() {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          'x-user-email': user?.email || '',
+          'Authorization': `Bearer ${cronSecret.trim()}`,
         },
       });
       
@@ -410,23 +435,34 @@ export default function AdminPanel() {
     });
 
     try {
-      const groqRes = await fetch('/api/test-groq');
-      const groqData = await groqRes.json();
+      // Prueba real de extremo a extremo del chat (gasta una respuesta mínima de Groq)
+      const chatRes = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: 'ping', category: 'general', history: [] }),
+      });
+      const chatData = await chatRes.json();
       setSystemStatus(prev => ({
         ...prev,
-        groq: groqData.success 
-          ? { status: 'ok', message: 'API funcionando correctamente' }
-          : { status: 'error', message: groqData.body || groqData.error || 'Error desconocido' }
+        groq: chatData.success
+          ? { status: 'ok', message: `Chat IA funcionando (modelo: ${chatData.model || 'groq'})` }
+          : { status: 'error', message: chatData.error || 'Error desconocido' },
+        chat: chatData.errorCode === 'MISSING_API_KEY'
+          ? { status: 'error', message: 'API Key de Groq no configurada' }
+          : chatData.success
+            ? { status: 'ok', message: 'API Key configurada y respondiendo' }
+            : { status: 'error', message: chatData.error || 'Error desconocido' },
       }));
     } catch (error) {
       setSystemStatus(prev => ({
         ...prev,
-        groq: { status: 'error', message: 'Error de conexión' }
+        groq: { status: 'error', message: 'Error de conexión' },
+        chat: { status: 'error', message: 'Error de conexión' },
       }));
     }
 
     try {
-      const dbRes = await fetch('/api/debug', {
+      const dbRes = await fetch('/api/admin', {
         headers: { 'x-admin-email': user?.email || '' },
       });
       const dbData = await dbRes.json();
@@ -440,22 +476,6 @@ export default function AdminPanel() {
       setSystemStatus(prev => ({
         ...prev,
         database: { status: 'error', message: 'Error de conexión' }
-      }));
-    }
-
-    try {
-      const chatRes = await fetch('/api/debug-chat');
-      const chatData = await chatRes.json();
-      setSystemStatus(prev => ({
-        ...prev,
-        chat: chatData.hasGroqKey 
-          ? { status: 'ok', message: `API Key configurada (${chatData.groqKeyLength} chars)` }
-          : { status: 'error', message: 'API Key no configurada' }
-      }));
-    } catch (error) {
-      setSystemStatus(prev => ({
-        ...prev,
-        chat: { status: 'error', message: 'Error de conexión' }
       }));
     }
   };
@@ -665,11 +685,27 @@ export default function AdminPanel() {
         </CardHeader>
         <CardContent>
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-            <div className="flex-1">
+            <div className="flex-1 w-full">
               <p className="text-sm text-muted-foreground mb-2">
-                Genera artículos automáticamente usando IA. Los artículos se guardan en la base de datos 
-                y aparecen en la sección de artículos de la web.
+                Genera artículos automáticamente usando IA. Los artículos se guardan como borradores 
+                y debes aprobarlos antes de publicarlos.
               </p>
+              <div className="mb-3">
+                <Label htmlFor="cron-secret" className="text-xs text-muted-foreground">
+                  Clave de generación (CRON_SECRET)
+                </Label>
+                <Input
+                  id="cron-secret"
+                  type="password"
+                  placeholder="Valor de la variable CRON_SECRET de Vercel"
+                  value={cronSecret}
+                  onChange={(e) => handleCronSecretChange(e.target.value)}
+                  className="mt-1 max-w-sm"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Se guarda solo en este navegador. La generación automática diaria (cron) funciona sin esta clave.
+                </p>
+              </div>
               {lastArticleResult && (
                 <div className={`flex items-center gap-2 text-sm ${lastArticleResult.success ? 'text-green-600' : 'text-red-600'}`}>
                   {lastArticleResult.success ? (
