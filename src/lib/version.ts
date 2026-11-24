@@ -3,7 +3,7 @@
  * Permite rastrear cambios y mejoras implementadas
  */
 
-export const VERSION = '1.8.0';
+export const VERSION = '1.9.0';
 
 export interface VersionEntry {
   version: string;
@@ -12,6 +12,17 @@ export interface VersionEntry {
 }
 
 export const VERSION_HISTORY: VersionEntry[] = [
+  {
+    version: '1.9.0',
+    date: '2026-11-24',
+    changes: [
+      'Arreglado el chat: Groq con cadena de modelos de respaldo automáticos',
+      'Generación de artículos protegida con CRON_SECRET (nadie gasta tus créditos)',
+      'Eliminadas las rutas de depuración inseguras (/api/debug, /api/test-groq)',
+      'Arreglado el bug de la URL de pago (https://undefined)',
+      'Versión visible en el Panel de Administración para verificar despliegues',
+    ],
+  },
   {
     version: '1.7.6',
     date: '2025-02-26',
