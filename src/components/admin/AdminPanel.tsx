@@ -42,6 +42,7 @@ import {
 } from 'lucide-react';
 import { useUser } from '@/hooks/useUser';
 import { authGet, authPost } from '@/lib/api-client';
+import { VERSION } from '@/lib/version';
 import { useToast } from '@/hooks/use-toast';
 import {
   Dialog,
@@ -517,6 +518,7 @@ export default function AdminPanel() {
         <div className="flex items-center gap-2">
           <Shield className="h-6 w-6 text-purple-600" />
           <h2 className="text-2xl font-bold">Panel de Administración</h2>
+          <Badge variant="secondary" className="font-mono">v{VERSION}</Badge>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button onClick={() => window.location.href = '/'} variant="outline" size="sm">
@@ -550,6 +552,17 @@ export default function AdminPanel() {
           </CardHeader>
           <CardContent>
             <div className="grid gap-3">
+              {/* Versión desplegada: si cambia este número, el despliegue ha llegado a producción */}
+              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                <div className="flex items-center gap-3">
+                  <CheckCircle className="h-5 w-5 text-purple-500" />
+                  <div>
+                    <p className="font-medium text-sm">Versión desplegada</p>
+                    <p className="text-xs text-muted-foreground">Si este número cambia, el despliegue ha llegado</p>
+                  </div>
+                </div>
+                <span className="font-mono text-sm font-bold">v{VERSION}</span>
+              </div>
               <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                 <div className="flex items-center gap-3">
                   {systemStatus.groq.status === 'loading' ? (
